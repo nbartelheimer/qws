@@ -261,10 +261,14 @@ else ifeq ($(compiler),intel)
     CXX      += -qopenmp
   endif
   MYFLAGS    += -D_CHECK_TIMING
+  # -fp-model=precise is REQUIRED: icx/icpx default to -fp-model=fast, whose
+  # reassociation / fast reciprocals make the mixed-precision LDDHMC (Jacobi)
+  # solver diverge to NaN (block-2 rnorm^2 = -nan) while block-1 still converges.
+  # precise restores IEEE-consistent FP and the solver converges (rnorm^2 ~ 1e-26).
   ifeq ($(arch),skylake)
-     CFLAGS   = -O3 -xCORE-AVX512 -fno-alias -qopt-zmm-usage=high -Wno-unknown-pragmas -DARCH_AVX512
+     CFLAGS   = -O3 -xCORE-AVX512 -fno-alias -qopt-zmm-usage=high -fp-model=precise -Wno-unknown-pragmas -DARCH_AVX512
   else ifeq ($(arch),ofp)
-     CFLAGS   = -O3 -xKNL -fno-alias -qopt-zmm-usage=high -Wno-unknown-pragmas
+     CFLAGS   = -O3 -xKNL -fno-alias -qopt-zmm-usage=high -fp-model=precise -Wno-unknown-pragmas
   endif
   CXXFLAGS    = $(CFLAGS) -std=gnu++11
   CXXFLAGS_A  = $(CFLAGS) -std=gnu++11
