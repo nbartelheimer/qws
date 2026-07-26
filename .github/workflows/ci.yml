@@ -5,11 +5,13 @@ on:
   pull_request:
     branches: [ master, develop ]
 
-env:
-  # The gnu/openmpi-gnu builds take the scalar intrinsic path, so CASE0/CASE1 are
-  # CPU-bound for a few minutes on a 2-vCPU runner. Pin the thread count instead of
-  # letting OpenMP spawn one thread per core on top of the 2 MPI ranks.
-  OMP_NUM_THREADS: 1
+# Temporarily disabled to check what it was actually buying us.  The runner that
+# ran a997e7c reported nproc=1, and with OMP_NUM_THREADS unset libgomp already
+# defaults to nproc -- so on such a runner pinning it to 1 changes nothing.  Each
+# `checking` step below now logs nproc and the variable, so the next run tells us
+# the runner size and whether the timings move at all.  Re-enable if they do.
+#env:
+#  OMP_NUM_THREADS: 1
 
 jobs:
   test-single:
@@ -22,6 +24,7 @@ jobs:
         run: make -j 2 fugaku_benchmark= omp=1  compiler=gnu arch=skylake rdma= mpi= powerapi=
       - name: checking
         run: |
+          echo "nproc=$(nproc) OMP_NUM_THREADS=${OMP_NUM_THREADS:-<unset>}"
           rc=0
           timeout 900 ./main 32 6 4 3   1 1 1 1    -1   -1  6 50 > CASE0 2> CASE0.err || rc=$?
           if [ $rc -ne 0 ]; then
@@ -55,6 +58,7 @@ jobs:
         run: make -j 2 fugaku_benchmark= omp=1  compiler=openmpi-gnu arch=skylake rdma= mpi=1 powerapi=
       - name: checking
         run: |
+          echo "nproc=$(nproc) OMP_NUM_THREADS=${OMP_NUM_THREADS:-<unset>}"
           rc=0
           timeout 900 mpirun -np 2 ./main 32 6 4 3   1 1 1 2    -1   -1  6 50 > CASE1 2> CASE1.err || rc=$?
           if [ $rc -ne 0 ]; then
