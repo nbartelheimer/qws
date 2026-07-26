@@ -4,19 +4,49 @@ on:
     branches: [ master, develop ]
   pull_request:
     branches: [ master, develop ]
+
+env:
+  # The gnu/openmpi-gnu builds take the scalar intrinsic path, so CASE0/CASE1 are
+  # CPU-bound for a few minutes on a 2-vCPU runner. Pin the thread count instead of
+  # letting OpenMP spawn one thread per core on top of the 2 MPI ranks.
+  OMP_NUM_THREADS: 1
+
 jobs:
   test-single:
     runs-on: ubuntu-latest
+    # A stalled run must fail fast instead of burning the 6 h job cap.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v2
       - name: make with g++
         run: make -j 2 fugaku_benchmark= omp=1  compiler=gnu arch=skylake rdma= mpi= powerapi=
       - name: checking
         run: |
-          ./main 32 6 4 3   1 1 1 1    -1   -1  6 50 > CASE0
+          rc=0
+          timeout 900 ./main 32 6 4 3   1 1 1 1    -1   -1  6 50 > CASE0 2> CASE0.err || rc=$?
+          if [ $rc -ne 0 ]; then
+            if [ $rc -eq 124 ]; then
+              echo "::error::./main did not finish within 900 s (killed by timeout)"
+            else
+              echo "::error::./main exited with status $rc"
+            fi
+            echo "--- last 20 lines of stdout ---"; tail -20 CASE0
+            echo "--- stderr ---";                  cat CASE0.err
+            exit 1
+          fi
           ./check.sh CASE0 data/CASE0
+      - name: upload run output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: case0-output
+          path: |
+            CASE0
+            CASE0.err
+
   test-MPI:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v2
       - name: install openmpi
@@ -25,13 +55,37 @@ jobs:
         run: make -j 2 fugaku_benchmark= omp=1  compiler=openmpi-gnu arch=skylake rdma= mpi=1 powerapi=
       - name: checking
         run: |
-          mpirun -np 2 ./main 32 6 4 3   1 1 1 2    -1   -1  6 50 > CASE1
+          rc=0
+          timeout 900 mpirun -np 2 ./main 32 6 4 3   1 1 1 2    -1   -1  6 50 > CASE1 2> CASE1.err || rc=$?
+          if [ $rc -ne 0 ]; then
+            if [ $rc -eq 124 ]; then
+              echo "::error::mpirun did not finish within 900 s (killed by timeout)"
+              echo "a stall here has been seen once on a GitHub runner and never reproduced"
+              echo "on real hardware; the stack of each rank is what is needed next time"
+            else
+              echo "::error::mpirun exited with status $rc"
+            fi
+            echo "--- last 20 lines of stdout ---"; tail -20 CASE1
+            echo "--- stderr ---";                  cat CASE1.err
+            exit 1
+          fi
           ./check.sh CASE1 data/CASE1
+      - name: upload run output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: case1-output
+          path: |
+            CASE1
+            CASE1.err
       # Runs a set of commands using the runners shell
       - name: show env
+        if: always()
         run: |
           echo uname -a
           uname -a
+          echo nproc
+          nproc
           echo mpicc --version
           mpicc --version
           echo mpirun --version
