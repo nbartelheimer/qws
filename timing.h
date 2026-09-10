@@ -526,24 +526,24 @@ extern int prof_flag;
 # define _OVERLAP_PROBE_SET_LABEL_(label)
 # define _OVERLAP_PROBE_POLL_(phase)
 # define _OVERLAP_PROBE_AFTER_WAIT_
-# define _BCG_DD_MIX_TIC_                       IF_PROF(PROF_START("bicgstab_dd_mix_"))
-# define _BCG_DD_MIX_TOC_                       IF_PROF( PROF_STOP("bicgstab_dd_mix_"))
-# define _BCG_DD_MIX_DDD_D_TIC_                 IF_PROF(PROF_START("bicgstab_dd_mix_ddd_d_"))
-# define _BCG_DD_MIX_DDD_D_TOC_                 IF_PROF( PROF_STOP("bicgstab_dd_mix_ddd_d_"))
-# define _BCG_DD_MIX_ALLREDUCE_TIC_             IF_PROF(PROF_START("bicgstab_dd_mix_allreduce_"))
-# define _BCG_DD_MIX_ALLREDUCE_TOC_             IF_PROF( PROF_STOP("bicgstab_dd_mix_allreduce_"))
-# define _BCG_DD_MIX_VECTOR_TIC_                IF_PROF(PROF_START("bicgstab_dd_mix_vector_"))
-# define _BCG_DD_MIX_VECTOR_TOC_                IF_PROF( PROF_STOP("bicgstab_dd_mix_vector_"))
-# define _APPROX_INV_DIRAC_OP_TIC_              IF_PROF(PROF_START("approx_inv_dirac_op_"))
-# define _APPROX_INV_DIRAC_OP_TOC_              IF_PROF( PROF_STOP("approx_inv_dirac_op_"))
-# define _APPROX_INV_DIRAC_OP_REORDER_D2S_TIC_  IF_PROF(PROF_START("approx_inv_dirac_op_reorder_d2s_"))
-# define _APPROX_INV_DIRAC_OP_REORDER_D2S_TOC_  IF_PROF( PROF_STOP("approx_inv_dirac_op_reorder_d2s_"))
-# define _APPROX_INV_DIRAC_OP_INNER_SOLVER_TIC_ IF_PROF(PROF_START("approx_inv_dirac_op_inner_solver_"))
-# define _APPROX_INV_DIRAC_OP_INNER_SOLVER_TOC_ IF_PROF( PROF_STOP("approx_inv_dirac_op_inner_solver_"))
-# define _APPROX_INV_DIRAC_OP_PREC_S_TIC_       IF_PROF(PROF_START("approx_inv_dirac_op_prec_s_"))
-# define _APPROX_INV_DIRAC_OP_PREC_S_TOC_       IF_PROF( PROF_STOP("approx_inv_dirac_op_prec_s_"))
-# define _APPROX_INV_DIRAC_OP_REORDER_S2D_TIC_  IF_PROF(PROF_START("approx_inv_dirac_op_reorder_s2d_"))
-# define _APPROX_INV_DIRAC_OP_REORDER_S2D_TOC_  IF_PROF( PROF_STOP("approx_inv_dirac_op_reorder_s2d_"))
+# define _BCG_DD_MIX_TIC_
+# define _BCG_DD_MIX_TOC_
+# define _BCG_DD_MIX_DDD_D_TIC_
+# define _BCG_DD_MIX_DDD_D_TOC_
+# define _BCG_DD_MIX_ALLREDUCE_TIC_
+# define _BCG_DD_MIX_ALLREDUCE_TOC_
+# define _BCG_DD_MIX_VECTOR_TIC_
+# define _BCG_DD_MIX_VECTOR_TOC_
+# define _APPROX_INV_DIRAC_OP_TIC_
+# define _APPROX_INV_DIRAC_OP_TOC_
+# define _APPROX_INV_DIRAC_OP_REORDER_D2S_TIC_
+# define _APPROX_INV_DIRAC_OP_REORDER_D2S_TOC_
+# define _APPROX_INV_DIRAC_OP_INNER_SOLVER_TIC_
+# define _APPROX_INV_DIRAC_OP_INNER_SOLVER_TOC_
+# define _APPROX_INV_DIRAC_OP_PREC_S_TIC_
+# define _APPROX_INV_DIRAC_OP_PREC_S_TOC_
+# define _APPROX_INV_DIRAC_OP_REORDER_S2D_TIC_
+# define _APPROX_INV_DIRAC_OP_REORDER_S2D_TOC_
 #endif
 
 #endif

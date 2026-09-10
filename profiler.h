@@ -90,8 +90,14 @@
 
 #elif defined(USE_CALIPER)
 // #include <caliper/cali.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 extern void cali_begin_region(const char*);
 extern void cali_end_region(const char*);
+#ifdef __cplusplus
+}
+#endif
 #define PROF_INIT
 #define PROF_FINALIZE
 #define PROF_START(a)     cali_begin_region(a);
