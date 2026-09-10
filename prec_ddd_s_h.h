@@ -245,12 +245,14 @@ void assign_mult_wd_s_(scs_t *x, const scs_t *b)
   ///////////////////////
   // Send for Deo bo
   ///////////////////////
+  _OVERLAP_PROBE_SET_LABEL_("assign_mult_wd.e.ddd_in");
   ddd_out_pre_s_( b, &domain_e);
 
   ///////////////////////
   // xe = Dee be
   ///////////////////////
   ddd_in_s_( xe, be, &domain_e);
+  _OVERLAP_PROBE_POLL_("ddd_in");
 
   ///////////////////////
   // xe = xe + Deo bo
@@ -261,12 +263,14 @@ void assign_mult_wd_s_(scs_t *x, const scs_t *b)
   ///////////////////////
   // Send for Doe be
   ///////////////////////
+  _OVERLAP_PROBE_SET_LABEL_("assign_mult_wd.o.ddd_in");
   ddd_out_pre_s_( b, &domain_o);
 
   ///////////////////////
   // xo = Dee bo
   ///////////////////////
   ddd_in_s_( xo, bo, &domain_o);
+  _OVERLAP_PROBE_POLL_("ddd_in");
 
   ///////////////////////
   // xo = xo + Doe be 

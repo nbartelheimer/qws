@@ -48,6 +48,12 @@
 //
 //****************************************************************************************
 #include "qws.h"
+#include "timing.h"
+#include <stdio.h>
+#include <string.h>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 //#define min(a,b) (a)>(b)?(b):(a) 
 
 //#include "timing.h"
@@ -132,6 +138,364 @@ extern "C"{
 
   projscd1_t *xfd_recv0;
   projscd1_t *xbd_recv0;
+
+#if defined(PROF_TARGET) && PROF_TARGET == TARGET_OVERLAP_PROBE && defined(_CHECK_TIMING)
+  static int overlap_probe_active = 0;
+  static int overlap_probe_recv_done = 0;
+  static int overlap_probe_exposed_wait_active = 0;
+  static int overlap_probe_post_recv_window_active = 0;
+  static int overlap_probe_req_active[8];
+  static int overlap_probe_req_done[8];
+  static int overlap_probe_req_post_recorded[8];
+  static int overlap_probe_send_label_valid = 0;
+  static int overlap_probe_recv_active_count = 0;
+  static const char *overlap_probe_next_label = "unlabeled";
+  static const char *overlap_probe_active_label = "unlabeled";
+  static const char *overlap_probe_send_label = "unlabeled";
+  static const char *overlap_probe_req_name[8] = {
+    "xf", "xb", "yf", "yb", "zf", "zb", "tf", "tb"
+  };
+  static double overlap_probe_begin_clock = 0.0;
+  static double overlap_probe_done_clock = 0.0;
+  static double overlap_probe_calc_end_clock = 0.0;
+  static double overlap_probe_exposed_wait_start_clock = 0.0;
+  static double overlap_probe_last_phase_clock = 0.0;
+  static double overlap_probe_req_done_clock[8];
+  static double overlap_probe_req_pending_elapsed[8];
+  static double overlap_probe_req_post_elapsed[8];
+  static double overlap_probe_req_exposed_elapsed[8];
+
+  static void overlap_probe_add_timing(const char *id, double elapsed) {
+    if (elapsed < 0.0) elapsed = 0.0;
+    add_timing_delta_(id, &elapsed);
+  }
+
+  static void overlap_probe_add_labeled_timing(const char *metric,
+                                               const char *label,
+                                               const char *phase,
+                                               double elapsed) {
+    char id[160];
+    if (phase == NULL) {
+      snprintf(id, sizeof(id), "%s.%s", metric, label);
+    } else {
+      snprintf(id, sizeof(id), "%s.%s.%s", metric, label, phase);
+    }
+    overlap_probe_add_timing(id, elapsed);
+  }
+
+  static void overlap_probe_add_metric(const char *metric, double elapsed) {
+    overlap_probe_add_timing(metric, elapsed);
+    overlap_probe_add_labeled_timing(metric, overlap_probe_active_label, NULL, elapsed);
+  }
+
+  static int overlap_probe_is_unlabeled(const char *label) {
+    return label == NULL || strcmp(label, "unlabeled") == 0;
+  }
+
+  static void overlap_probe_add_phase_metric(const char *metric,
+                                             const char *phase,
+                                             double elapsed) {
+    overlap_probe_add_timing(metric, elapsed);
+    overlap_probe_add_labeled_timing(metric, overlap_probe_active_label, NULL, elapsed);
+    overlap_probe_add_labeled_timing(metric, overlap_probe_active_label, phase, elapsed);
+  }
+
+  static void overlap_probe_add_dir_metric(const char *metric,
+                                           int req,
+                                           double elapsed) {
+    char id[160];
+    if (req < 0 || req >= 8) return;
+    snprintf(id, sizeof(id), "%s.%s.%s",
+             metric, overlap_probe_active_label, overlap_probe_req_name[req]);
+    overlap_probe_add_timing(id, elapsed);
+  }
+
+  static void overlap_probe_add_dir_phase_metric(const char *metric,
+                                                 int req,
+                                                 const char *phase,
+                                                 double elapsed) {
+    char id[160];
+    if (req < 0 || req >= 8 || phase == NULL) return;
+    snprintf(id, sizeof(id), "%s.%s.%s.%s",
+             metric, overlap_probe_active_label, phase, overlap_probe_req_name[req]);
+    overlap_probe_add_timing(id, elapsed);
+  }
+
+  static void overlap_probe_add_dir_check_metric(const char *metric,
+                                                 int req,
+                                                 double value) {
+    char id[160];
+    double abs_value = value < 0.0 ? -value : value;
+    if (req < 0 || req >= 8) return;
+    snprintf(id, sizeof(id), "%s.%s.%s",
+             metric, overlap_probe_active_label, overlap_probe_req_name[req]);
+    overlap_probe_add_timing(id, abs_value);
+  }
+
+  static void overlap_probe_add_send_metric(const char *metric,
+                                            double elapsed) {
+    overlap_probe_add_timing(metric, elapsed);
+    if (overlap_probe_send_label_valid) {
+      overlap_probe_add_labeled_timing(metric, overlap_probe_send_label, NULL, elapsed);
+    }
+  }
+
+  static void overlap_probe_add_send_dir_metric(const char *metric,
+                                                int req,
+                                                double elapsed) {
+    char id[160];
+    if (req < 0 || req >= 8) return;
+    if (!overlap_probe_send_label_valid) return;
+    snprintf(id, sizeof(id), "%s.%s.%s",
+             metric, overlap_probe_send_label, overlap_probe_req_name[req]);
+    overlap_probe_add_timing(id, elapsed);
+  }
+
+  static void overlap_probe_add_send_check_metric(const char *metric,
+                                                  double value) {
+    double abs_value = value < 0.0 ? -value : value;
+    overlap_probe_add_send_metric(metric, abs_value);
+  }
+
+  static double overlap_probe_wait_send_request(MPI_Request *request,
+                                                MPI_Status *status) {
+    double start_clock = get_clock();
+    MPI_Wait(request, status);
+    return get_clock() - start_clock;
+  }
+
+  static void overlap_probe_record_send_wait(int req,
+                                             double elapsed,
+                                             double *sum_elapsed,
+                                             double *max_elapsed,
+                                             int *max_req,
+                                             int *wait_count) {
+    overlap_probe_add_send_dir_metric("overlap_probe_send_dir_wait", req, elapsed);
+    *sum_elapsed += elapsed;
+    if (*wait_count == 0 || elapsed > *max_elapsed) {
+      *max_elapsed = elapsed;
+      *max_req = req;
+    }
+    (*wait_count)++;
+  }
+
+  static void overlap_probe_record_phase(const char *phase) {
+    double now_clock;
+    if (phase == NULL || !overlap_probe_active) return;
+    now_clock = get_clock();
+    overlap_probe_add_phase_metric("overlap_probe_phase",
+                                   phase,
+                                   now_clock - overlap_probe_last_phase_clock);
+    overlap_probe_last_phase_clock = now_clock;
+  }
+
+  static void overlap_probe_record_window_begin(void) {
+    overlap_probe_add_metric("overlap_probe_window_begin", 0.0);
+    overlap_probe_add_metric("overlap_probe_recv_active_count",
+                             (double)overlap_probe_recv_active_count);
+    if (overlap_probe_is_unlabeled(overlap_probe_active_label)) {
+      overlap_probe_add_metric("overlap_probe_check_unlabeled_window", 1.0);
+    }
+    if (overlap_probe_send_label_valid) {
+      overlap_probe_add_timing("overlap_probe_check_send_label_not_consumed", 1.0);
+      overlap_probe_add_labeled_timing("overlap_probe_check_send_label_not_consumed",
+                                       overlap_probe_send_label,
+                                       NULL,
+                                       1.0);
+    }
+    for (int req=0; req<8; req++) {
+      if (!overlap_probe_req_active[req]) continue;
+      overlap_probe_add_dir_metric("overlap_probe_recv_active_dir", req, 0.0);
+    }
+  }
+
+  static int overlap_probe_all_receives_done(void) {
+    for (int req=0; req<8; req++) {
+      if (overlap_probe_req_active[req] && !overlap_probe_req_done[req]) return 0;
+    }
+    return 1;
+  }
+
+  static void overlap_probe_record_all_done(double done_clock,
+                                            const char *phase) {
+    double max_done_clock = overlap_probe_begin_clock;
+    if (overlap_probe_recv_done) return;
+    overlap_probe_done_clock = done_clock;
+    if (overlap_probe_exposed_wait_active) {
+      overlap_probe_add_metric("overlap_probe_recv_exposed_wait",
+                               overlap_probe_done_clock - overlap_probe_exposed_wait_start_clock);
+      overlap_probe_exposed_wait_active = 0;
+    } else {
+      overlap_probe_add_metric("overlap_probe_recv_pending_window",
+                               overlap_probe_done_clock - overlap_probe_begin_clock);
+      overlap_probe_post_recv_window_active = 1;
+    }
+    overlap_probe_add_metric("overlap_probe_recv_observed",
+                             overlap_probe_done_clock - overlap_probe_begin_clock);
+    if (phase != NULL) {
+      overlap_probe_add_phase_metric("overlap_probe_recv_observed_at",
+                                     phase,
+                                     overlap_probe_done_clock - overlap_probe_begin_clock);
+    }
+    overlap_probe_recv_done = 1;
+    for (int req=0; req<8; req++) {
+      if (!overlap_probe_req_active[req]) continue;
+      if (overlap_probe_req_done_clock[req] > max_done_clock) {
+        max_done_clock = overlap_probe_req_done_clock[req];
+      }
+    }
+    overlap_probe_add_metric("overlap_probe_check_recv_observed_vs_dir_max",
+                             overlap_probe_done_clock - max_done_clock);
+  }
+
+  static void overlap_probe_record_dir_done(int req,
+                                            const char *phase,
+                                            double done_clock) {
+    if (!overlap_probe_req_active[req] || overlap_probe_req_done[req]) return;
+    overlap_probe_req_done[req] = 1;
+    overlap_probe_req_done_clock[req] = done_clock;
+    if (overlap_probe_exposed_wait_active) {
+      overlap_probe_req_exposed_elapsed[req] =
+        done_clock - overlap_probe_exposed_wait_start_clock;
+      overlap_probe_add_dir_metric("overlap_probe_recv_dir_exposed_wait",
+                                   req,
+                                   overlap_probe_req_exposed_elapsed[req]);
+    } else {
+      overlap_probe_req_pending_elapsed[req] =
+        done_clock - overlap_probe_begin_clock;
+      overlap_probe_add_dir_metric("overlap_probe_recv_dir_pending_window",
+                                   req,
+                                   overlap_probe_req_pending_elapsed[req]);
+    }
+    overlap_probe_add_dir_metric("overlap_probe_recv_dir_observed",
+                                 req,
+                                 done_clock - overlap_probe_begin_clock);
+    overlap_probe_add_dir_phase_metric("overlap_probe_recv_dir_observed_at",
+                                       req,
+                                       phase,
+                                       done_clock - overlap_probe_begin_clock);
+    if (overlap_probe_all_receives_done()) {
+      overlap_probe_record_all_done(done_clock, phase);
+    }
+  }
+
+  static void overlap_probe_record_dir_post_windows(double calc_end_clock) {
+    for (int req=0; req<8; req++) {
+      if (!overlap_probe_req_active[req]) continue;
+      if (!overlap_probe_req_done[req]) continue;
+      if (overlap_probe_req_post_recorded[req]) continue;
+      if (overlap_probe_req_done_clock[req] > calc_end_clock) continue;
+      overlap_probe_req_post_elapsed[req] =
+        calc_end_clock - overlap_probe_req_done_clock[req];
+      overlap_probe_add_dir_metric("overlap_probe_recv_dir_post_window",
+                                   req,
+                                   overlap_probe_req_post_elapsed[req]);
+      overlap_probe_add_dir_check_metric("overlap_probe_check_dir_window_balance",
+                                         req,
+                                         overlap_probe_req_pending_elapsed[req]
+                                         + overlap_probe_req_post_elapsed[req]
+                                         - (calc_end_clock - overlap_probe_begin_clock));
+      overlap_probe_req_post_recorded[req] = 1;
+    }
+  }
+
+  static void overlap_probe_record_dir_observed_checks(void) {
+    for (int req=0; req<8; req++) {
+      if (!overlap_probe_req_active[req]) continue;
+      if (!overlap_probe_req_done[req]) continue;
+      overlap_probe_add_dir_check_metric("overlap_probe_check_dir_observed_balance",
+                                         req,
+                                         overlap_probe_req_pending_elapsed[req]
+                                         + overlap_probe_req_exposed_elapsed[req]
+                                         - (overlap_probe_req_done_clock[req]
+                                            - overlap_probe_begin_clock));
+    }
+  }
+
+  static int overlap_probe_on_master_thread(void) {
+#ifdef _OPENMP
+    return omp_get_thread_num() == 0;
+#else
+    return 1;
+#endif
+  }
+
+  static int overlap_probe_calc_end_only_mode(void) {
+#if defined(OVERLAP_PROBE_CALC_END_ONLY) || defined(OVERLAP_PROBE_WAIT_ONLY)
+    return 1;
+#else
+    return 0;
+#endif
+  }
+
+  static int overlap_probe_wait_only_mode(void) {
+#ifdef OVERLAP_PROBE_WAIT_ONLY
+    return 1;
+#else
+    return 0;
+#endif
+  }
+
+  static int overlap_probe_coarse_phase_mode(void) {
+#ifdef OVERLAP_PROBE_COARSE_PHASE
+    return 1;
+#else
+    return 0;
+#endif
+  }
+
+  static int overlap_probe_phase_is_calc_end(const char *phase) {
+    return phase != NULL && strcmp(phase, "calc_end") == 0;
+  }
+
+  static int overlap_probe_active_label_has_accum(void) {
+    return overlap_probe_active_label != NULL
+      && strstr(overlap_probe_active_label, ".ddd_in_accum") != NULL;
+  }
+
+  static int overlap_probe_should_coalesce_poll(const char *phase) {
+    return overlap_probe_coarse_phase_mode()
+      && phase != NULL
+      && strcmp(phase, "ddd_in") == 0;
+  }
+
+  static const char *overlap_probe_completion_phase(const char *phase) {
+    if (overlap_probe_coarse_phase_mode()
+        && overlap_probe_active_label_has_accum()
+        && phase != NULL
+        && (strcmp(phase, "accum_addsub") == 0
+            || strcmp(phase, "accum_add") == 0)) {
+      return "ddd_in_accum";
+    }
+    return phase;
+  }
+
+  static int overlap_probe_test_receives(const char *phase) {
+    int all_done;
+    double start_clock = get_clock();
+    for (int req=0; req<8; req++) {
+      int flag = 0;
+      if (!overlap_probe_req_active[req] || overlap_probe_req_done[req]) continue;
+      MPI_Test(&rs_req[req], &flag, MPI_STATUS_IGNORE);
+      if (flag) {
+        if ((overlap_probe_calc_end_only_mode()
+             || overlap_probe_coarse_phase_mode())
+            && overlap_probe_phase_is_calc_end(phase)) {
+          overlap_probe_add_dir_metric("overlap_probe_recv_dir_observed_upper_bound",
+                                       req,
+                                       get_clock() - overlap_probe_begin_clock);
+        }
+        overlap_probe_record_dir_done(req, phase, get_clock());
+      }
+    }
+    all_done = overlap_probe_all_receives_done();
+    if (all_done) {
+      overlap_probe_record_all_done(get_clock(), phase);
+    }
+    overlap_probe_add_phase_metric("overlap_probe_poll", phase, get_clock() - start_clock);
+    return all_done;
+  }
+#endif
 
 #ifdef _USE_RANKMAP
   int rankmap_id;
@@ -321,7 +685,6 @@ extern "C"{
     MPI_Barrier(MPI_COMM_WORLD);
 
     // stop recieving
-    MPI_Status status;
     for(int parity=0; parity<2; parity++){
       for(int req=0; req<8; req++){
 	if (npe[req/2] != 1) {
@@ -470,6 +833,7 @@ extern "C"{
 	MPI_Wait(&rd_req[req], &status);
       } else {
 	MPI_Wait(&rs_req[req], &status);
+	xbound_overlap_probe_after_req_wait(req);
 	recv_started[req]=0;
 	if(!recv_started_opposite[req]){
 	  MPI_Start(&rs_req_opposite[req]);
@@ -493,25 +857,212 @@ extern "C"{
   void xbound_send_waitall(int prec) {
     int i;
     MPI_Status status;
+#if defined(PROF_TARGET) && PROF_TARGET == TARGET_OVERLAP_PROBE && defined(_CHECK_TIMING)
+    double send_waitall_start_clock = get_clock();
+    double send_dir_wait_sum = 0.0;
+    double send_dir_wait_max = 0.0;
+    int send_label_valid_at_start = overlap_probe_send_label_valid;
+    int send_wait_max_req = -1;
+    int send_wait_count = 0;
+#endif
     if (prec == 8) {
       for (i=0;i<4;i++) {
-	if (npe[i] != 1) {
-	  MPI_Wait(&sd_req[0+2*i], &status);
-	  MPI_Wait(&sd_req[1+2*i], &status);
-	}
+		if (npe[i] != 1) {
+#if defined(PROF_TARGET) && PROF_TARGET == TARGET_OVERLAP_PROBE && defined(_CHECK_TIMING)
+		  double elapsed = overlap_probe_wait_send_request(&sd_req[0+2*i], &status);
+		  overlap_probe_record_send_wait(0+2*i, elapsed,
+                                 &send_dir_wait_sum, &send_dir_wait_max,
+                                 &send_wait_max_req, &send_wait_count);
+		  elapsed = overlap_probe_wait_send_request(&sd_req[1+2*i], &status);
+		  overlap_probe_record_send_wait(1+2*i, elapsed,
+                                 &send_dir_wait_sum, &send_dir_wait_max,
+                                 &send_wait_max_req, &send_wait_count);
+#else
+		  MPI_Wait(&sd_req[0+2*i], &status);
+		  MPI_Wait(&sd_req[1+2*i], &status);
+#endif
+  }
       }
     } else {
       for (i=0;i<4;i++) {
-	if (npe[i] != 1) {
-	  MPI_Wait(&ss_req[0+2*i], &status);
-	  MPI_Wait(&ss_req[1+2*i], &status);
-	}
+		if (npe[i] != 1) {
+#if defined(PROF_TARGET) && PROF_TARGET == TARGET_OVERLAP_PROBE && defined(_CHECK_TIMING)
+		  double elapsed = overlap_probe_wait_send_request(&ss_req[0+2*i], &status);
+		  overlap_probe_record_send_wait(0+2*i, elapsed,
+                                 &send_dir_wait_sum, &send_dir_wait_max,
+                                 &send_wait_max_req, &send_wait_count);
+		  elapsed = overlap_probe_wait_send_request(&ss_req[1+2*i], &status);
+		  overlap_probe_record_send_wait(1+2*i, elapsed,
+                                 &send_dir_wait_sum, &send_dir_wait_max,
+                                 &send_wait_max_req, &send_wait_count);
+#else
+		  MPI_Wait(&ss_req[0+2*i], &status);
+		  MPI_Wait(&ss_req[1+2*i], &status);
+#endif
+		}
       }
     }
+#if defined(PROF_TARGET) && PROF_TARGET == TARGET_OVERLAP_PROBE && defined(_CHECK_TIMING)
+    if (send_wait_count > 0) {
+      double send_waitall_elapsed = get_clock() - send_waitall_start_clock;
+      if (!send_label_valid_at_start) {
+        overlap_probe_add_timing("overlap_probe_send_waitall_unlabeled",
+                                 send_waitall_elapsed);
+      }
+      overlap_probe_add_send_metric("overlap_probe_send_waitall",
+                                    send_waitall_elapsed);
+      overlap_probe_add_send_metric("overlap_probe_send_waitall_dir_max",
+                                    send_dir_wait_max);
+      overlap_probe_add_send_dir_metric("overlap_probe_send_dir_wait_max",
+                                        send_wait_max_req,
+                                        send_dir_wait_max);
+      overlap_probe_add_send_check_metric("overlap_probe_check_send_waitall_vs_dir_sum",
+                                          send_waitall_elapsed - send_dir_wait_sum);
+      overlap_probe_send_label_valid = 0;
+      overlap_probe_send_label = "unlabeled";
+    }
+#endif
   }
 
   void xbound_recv_okall(int prec) {
     return;
+  }
+
+  void xbound_overlap_probe_set_label(const char *label) {
+#if defined(PROF_TARGET) && PROF_TARGET == TARGET_OVERLAP_PROBE && defined(_CHECK_TIMING)
+    if (!overlap_probe_on_master_thread()) return;
+    overlap_probe_next_label = label == NULL ? "unlabeled" : label;
+#endif
+  }
+
+  void xbound_overlap_probe_begin(void) {
+#if defined(PROF_TARGET) && PROF_TARGET == TARGET_OVERLAP_PROBE && defined(_CHECK_TIMING)
+    if (!overlap_probe_on_master_thread()) return;
+    overlap_probe_active = 1;
+    overlap_probe_recv_done = 0;
+    overlap_probe_exposed_wait_active = 0;
+    overlap_probe_post_recv_window_active = 0;
+    overlap_probe_active_label = overlap_probe_next_label;
+    overlap_probe_begin_clock = get_clock();
+    overlap_probe_recv_active_count = 0;
+    for (int req=0; req<8; req++) {
+      overlap_probe_req_active[req] = (npe[req/2] != 1 && recv_started[req]);
+      overlap_probe_req_done[req] = overlap_probe_req_active[req] ? 0 : 1;
+      if (overlap_probe_req_active[req]) overlap_probe_recv_active_count++;
+      overlap_probe_req_post_recorded[req] = 0;
+      overlap_probe_req_done_clock[req] = 0.0;
+      overlap_probe_req_pending_elapsed[req] = 0.0;
+      overlap_probe_req_post_elapsed[req] = 0.0;
+      overlap_probe_req_exposed_elapsed[req] = 0.0;
+    }
+    overlap_probe_done_clock = 0.0;
+    overlap_probe_calc_end_clock = 0.0;
+    overlap_probe_exposed_wait_start_clock = 0.0;
+    overlap_probe_last_phase_clock = overlap_probe_begin_clock;
+    if (overlap_probe_recv_active_count == 0) {
+      overlap_probe_recv_done = 1;
+    }
+    overlap_probe_record_window_begin();
+    if (overlap_probe_wait_only_mode()) {
+      overlap_probe_add_metric("overlap_probe_mode_wait_only", 0.0);
+    } else if (overlap_probe_coarse_phase_mode()) {
+      overlap_probe_add_metric("overlap_probe_mode_coarse_phase", 0.0);
+    } else if (overlap_probe_calc_end_only_mode()) {
+      overlap_probe_add_metric("overlap_probe_mode_calc_end_only", 0.0);
+    }
+#endif
+  }
+
+  void xbound_overlap_probe_poll_labeled(const char *phase) {
+#if defined(PROF_TARGET) && PROF_TARGET == TARGET_OVERLAP_PROBE && defined(_CHECK_TIMING)
+    if (!overlap_probe_on_master_thread()) return;
+    if (!overlap_probe_active) return;
+    overlap_probe_record_phase(phase);
+    if (overlap_probe_should_coalesce_poll(phase)) {
+      overlap_probe_add_phase_metric("overlap_probe_poll_coalesced", phase, 0.0);
+      return;
+    }
+    if (overlap_probe_calc_end_only_mode()) {
+      overlap_probe_add_phase_metric("overlap_probe_poll_skipped", phase, 0.0);
+      return;
+    }
+    if (overlap_probe_recv_done) return;
+    overlap_probe_test_receives(overlap_probe_completion_phase(phase));
+#endif
+  }
+
+  void xbound_overlap_probe_calc_end(void) {
+#if defined(PROF_TARGET) && PROF_TARGET == TARGET_OVERLAP_PROBE && defined(_CHECK_TIMING)
+    if (!overlap_probe_on_master_thread()) return;
+    if (!overlap_probe_active) return;
+    overlap_probe_calc_end_clock = get_clock();
+    if (!overlap_probe_recv_done && !overlap_probe_wait_only_mode()) {
+      overlap_probe_test_receives("calc_end");
+    }
+    if (!overlap_probe_recv_done) {
+      for (int req=0; req<8; req++) {
+        if (!overlap_probe_req_active[req] || overlap_probe_req_done[req]) continue;
+        overlap_probe_req_pending_elapsed[req] =
+          overlap_probe_calc_end_clock - overlap_probe_begin_clock;
+        overlap_probe_add_dir_metric("overlap_probe_recv_dir_pending_window",
+                                     req,
+                                     overlap_probe_req_pending_elapsed[req]);
+      }
+      overlap_probe_add_metric("overlap_probe_recv_pending_window",
+                               overlap_probe_calc_end_clock - overlap_probe_begin_clock);
+      overlap_probe_exposed_wait_start_clock = get_clock();
+      overlap_probe_exposed_wait_active = 1;
+    }
+    if (overlap_probe_post_recv_window_active) {
+      overlap_probe_add_metric("overlap_probe_post_recv_window",
+                               overlap_probe_calc_end_clock - overlap_probe_done_clock);
+      overlap_probe_post_recv_window_active = 0;
+    }
+    overlap_probe_record_dir_post_windows(overlap_probe_calc_end_clock);
+    overlap_probe_record_dir_observed_checks();
+    overlap_probe_add_metric("overlap_probe_window",
+                             overlap_probe_calc_end_clock - overlap_probe_begin_clock);
+#endif
+  }
+
+  void xbound_overlap_probe_after_req_wait(int req) {
+#if defined(PROF_TARGET) && PROF_TARGET == TARGET_OVERLAP_PROBE && defined(_CHECK_TIMING)
+    if (!overlap_probe_on_master_thread()) return;
+    if (!overlap_probe_active || overlap_probe_recv_done) return;
+    overlap_probe_record_dir_done(req, "wait", get_clock());
+#endif
+  }
+
+  void xbound_overlap_probe_after_wait(void) {
+#if defined(PROF_TARGET) && PROF_TARGET == TARGET_OVERLAP_PROBE && defined(_CHECK_TIMING)
+    if (!overlap_probe_on_master_thread()) return;
+    if (!overlap_probe_active) return;
+    if (!overlap_probe_recv_done) {
+      overlap_probe_done_clock = get_clock();
+      for (int req=0; req<8; req++) {
+        overlap_probe_record_dir_done(req, "after_wait", overlap_probe_done_clock);
+      }
+      if (!overlap_probe_recv_done) {
+        overlap_probe_record_all_done(overlap_probe_done_clock, "after_wait");
+      }
+    }
+    overlap_probe_record_dir_observed_checks();
+    overlap_probe_send_label = overlap_probe_active_label;
+    overlap_probe_send_label_valid = 1;
+    overlap_probe_active = 0;
+    overlap_probe_recv_done = 0;
+    overlap_probe_post_recv_window_active = 0;
+    for (int req=0; req<8; req++) {
+      overlap_probe_req_active[req] = 0;
+      overlap_probe_req_done[req] = 0;
+      overlap_probe_req_post_recorded[req] = 0;
+      overlap_probe_req_done_clock[req] = 0.0;
+      overlap_probe_req_pending_elapsed[req] = 0.0;
+      overlap_probe_req_post_elapsed[req] = 0.0;
+      overlap_probe_req_exposed_elapsed[req] = 0.0;
+    }
+    overlap_probe_active_label = "unlabeled";
+#endif
   }
 
 #ifdef __cplusplus

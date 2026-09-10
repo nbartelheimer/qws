@@ -49,6 +49,7 @@
 //****************************************************************************************
 #include "qws.h"
 #include "qwsintrin.h"
+#include "timing.h"
 #include <complex>
 #include <math.h>
 //#define _DEBUG_
@@ -74,6 +75,7 @@ extern "C"{
 
   //----------------------------------------------------------------------------------------
   void approx_inv_dirac_op(scd_t* x, scd_t* b, double *tol, int* iter, int* maxiter, int* nsap, int* nm){
+    _APPROX_INV_DIRAC_OP_TIC_;
     // NB: __attribute__((aligned(64))) on a pointer aligns the variable, NOT the
     // malloc'd heap -- it gives no AVX-512-safe data. Use posix_memalign instead.
     scs_t* b_s; posix_memalign((void**)&b_s, CLS, sizeof(scs_t) * vols*2);
@@ -87,22 +89,32 @@ extern "C"{
 
     double bnorm;
 
+    _APPROX_INV_DIRAC_OP_REORDER_D2S_TIC_;
     fermi_reorder_d2s_dd_renorm_(b_s, b, &bnorm);
+    _APPROX_INV_DIRAC_OP_REORDER_D2S_TOC_;
 
+    _APPROX_INV_DIRAC_OP_INNER_SOLVER_TIC_;
     bicgstab_precdd_s_(t_s, b_s, tol, iter, maxiter, nsap, nm);
+    _APPROX_INV_DIRAC_OP_INNER_SOLVER_TOC_;
+    _APPROX_INV_DIRAC_OP_PREC_S_TIC_;
     prec_s_(x_s, t_s, nsap, nm);
+    _APPROX_INV_DIRAC_OP_PREC_S_TOC_;
 
+    _APPROX_INV_DIRAC_OP_REORDER_S2D_TIC_;
     fermi_reorder_s2d_dd_renorm_(x, x_s, &bnorm);
+    _APPROX_INV_DIRAC_OP_REORDER_S2D_TOC_;
 
     //fermi_reorder_s2d_dd_(x, x_s);
     free(b_s);
     free(x_s);
     free(t_s);
+    _APPROX_INV_DIRAC_OP_TOC_;
     //if (rank==0)printf("%50s %10d\n", "approx_inv_dirac_op: converged iteration",*iter);
   }
 
   //----------------------------------------------------------------------------------------
   void bicgstab_dd_mix_(scd_t* x, scd_t* b, double *tol, int* conviter, int* maxiter, double *tol_s, int* maxiter_s, int* nsap, int* nm){
+    _BCG_DD_MIX_TIC_;
 
 
 
@@ -133,10 +145,13 @@ extern "C"{
 
 
     
+    _BCG_DD_MIX_DDD_D_TIC_;
     ddd_d_(q, x);
+    _BCG_DD_MIX_DDD_D_TOC_;
 
     rtmp0 = 0;
     rtmp1 = 0;
+    _BCG_DD_MIX_VECTOR_TIC_;
 #pragma omp parallel for reduction(+:rtmp0, rtmp1)
     for(int i=0; i<vold*2; i++){
       for(int j=0; j<24; j++){
@@ -149,10 +164,13 @@ extern "C"{
         }
       }
     }
+    _BCG_DD_MIX_VECTOR_TOC_;
     redu[0] = rtmp0;
     redu[1] = rtmp1;
 #ifdef _MPI_
+    _BCG_DD_MIX_ALLREDUCE_TIC_;
     MPI_Allreduce(MPI_IN_PLACE,(void *)redu,2,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD);
+    _BCG_DD_MIX_ALLREDUCE_TOC_;
 #endif
     bnorm= redu[0];
     rho0 = complex<double>(redu[1],0);
@@ -167,12 +185,15 @@ extern "C"{
       // q = Au
       iter_s = mult_count_all;
       approx_inv_dirac_op(u, p, tol_s, &iter_s, maxiter_s, nsap, nm);
+      _BCG_DD_MIX_DDD_D_TIC_;
       ddd_d_(q, u);
+      _BCG_DD_MIX_DDD_D_TOC_;
       mult_count_all += iter_s + 1;
 
       // alpha = rho0 / <r0,q>
       rtmp0 = 0;
       rtmp1 = 0;
+      _BCG_DD_MIX_VECTOR_TIC_;
 #pragma omp parallel for reduction(+:rtmp0, rtmp1)
       for(int i=0; i<vold*2; i++){
         for(int j=0; j<12; j++){
@@ -182,10 +203,13 @@ extern "C"{
           }
         }
       }
+      _BCG_DD_MIX_VECTOR_TOC_;
       redu[0] = rtmp0;
       redu[1] = rtmp1;
 #ifdef _MPI_
+      _BCG_DD_MIX_ALLREDUCE_TIC_;
       MPI_Allreduce(MPI_IN_PLACE,(void *)redu,2,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD);
+      _BCG_DD_MIX_ALLREDUCE_TOC_;
 #endif
       ctmp = complex<double>(redu[0], redu[1]);
       alpha = rho0 / ctmp;
@@ -197,6 +221,7 @@ extern "C"{
       ///////////////////////////
       ar=alpha.real();
       ai=alpha.imag();
+      _BCG_DD_MIX_VECTOR_TIC_;
 #pragma omp parallel for
       for(int i=0; i<vold*2; i++){
         for(int j=0; j<12; j++){
@@ -208,9 +233,11 @@ extern "C"{
           }
         }
       }
+      _BCG_DD_MIX_VECTOR_TOC_;
 
       // |r|
       rtmp0 = 0;
+      _BCG_DD_MIX_VECTOR_TIC_;
 #pragma omp parallel for reduction(+:rtmp0)
       for(int i=0; i<vold*2; i++){
         for(int j=0; j<24; j++){
@@ -219,9 +246,12 @@ extern "C"{
           }
         }
       }
+      _BCG_DD_MIX_VECTOR_TOC_;
       redu[0] = rtmp0;
 #ifdef _MPI_
+      _BCG_DD_MIX_ALLREDUCE_TIC_;
       MPI_Allreduce(MPI_IN_PLACE,(void *)redu,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD);
+      _BCG_DD_MIX_ALLREDUCE_TOC_;
 #endif
       rnorm = redu[0];
 
@@ -251,13 +281,16 @@ extern "C"{
       // t = Au
       iter_s = mult_count_all;
       approx_inv_dirac_op(u, r, tol_s, &iter_s, maxiter_s, nsap, nm);
+      _BCG_DD_MIX_DDD_D_TIC_;
       ddd_d_(t, u);
+      _BCG_DD_MIX_DDD_D_TOC_;
       mult_count_all += iter_s + 1;
 
       // omega = <t,r> / |t|^2
       rtmp0 = 0;
       rtmp1 = 0;
       rtmp2 = 0;
+      _BCG_DD_MIX_VECTOR_TIC_;
 #pragma omp parallel for reduction(+:rtmp0, rtmp1, rtmp2)
       for(int i=0; i<vold*2; i++){
         for(int j=0; j<12; j++){
@@ -268,11 +301,14 @@ extern "C"{
           }
         }
       }
+      _BCG_DD_MIX_VECTOR_TOC_;
       redu[0] = rtmp0;
       redu[1] = rtmp1;
       redu[2] = rtmp2;
 #ifdef _MPI_
+      _BCG_DD_MIX_ALLREDUCE_TIC_;
       MPI_Allreduce(MPI_IN_PLACE,(void *)redu,3,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD);
+      _BCG_DD_MIX_ALLREDUCE_TOC_;
 #endif
 
       omega = complex<double>(redu[1]/redu[0], redu[2]/redu[0] );
@@ -284,6 +320,7 @@ extern "C"{
       ////////////////////////////
       ar=omega.real();
       ai=omega.imag();
+      _BCG_DD_MIX_VECTOR_TIC_;
 #pragma omp parallel for
       for(int i=0; i<vold*2; i++){
         for(int j=0; j<12; j++){
@@ -295,9 +332,11 @@ extern "C"{
           }
         }
       }
+      _BCG_DD_MIX_VECTOR_TOC_;
 
       // |r|
       rtmp0 = 0;
+      _BCG_DD_MIX_VECTOR_TIC_;
 #pragma omp parallel for reduction(+:rtmp0)
       for(int i=0; i<vold*2; i++){
         for(int j=0; j<24; j++){
@@ -306,9 +345,12 @@ extern "C"{
           }
         }
       }
+      _BCG_DD_MIX_VECTOR_TOC_;
       redu[0] = rtmp0;
 #ifdef _MPI_
+      _BCG_DD_MIX_ALLREDUCE_TIC_;
       MPI_Allreduce(MPI_IN_PLACE,(void *)redu,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD);
+      _BCG_DD_MIX_ALLREDUCE_TOC_;
 #endif
       rnorm = redu[0];
 
@@ -338,6 +380,7 @@ extern "C"{
       // rho = <r0,r>
       rtmp0 = 0;
       rtmp1 = 0;
+      _BCG_DD_MIX_VECTOR_TIC_;
 #pragma omp parallel for reduction(+:rtmp0, rtmp1)
       for(int i=0; i<vold*2; i++){
         for(int j=0; j<12; j++){
@@ -347,10 +390,13 @@ extern "C"{
           }
         }
       }
+      _BCG_DD_MIX_VECTOR_TOC_;
       redu[0] = rtmp0;
       redu[1] = rtmp1;
 #ifdef _MPI_
+      _BCG_DD_MIX_ALLREDUCE_TIC_;
       MPI_Allreduce(MPI_IN_PLACE,(void *)redu,2,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD);
+      _BCG_DD_MIX_ALLREDUCE_TOC_;
 #endif
       rho = complex<double>(redu[0],redu[1]);
 
@@ -365,6 +411,7 @@ extern "C"{
       ai = omega.imag();
       br = beta.real();
       bi = beta.imag();
+      _BCG_DD_MIX_VECTOR_TIC_;
 #pragma omp parallel for
       for(int i=0; i<vold*2; i++){
         for(int j=0; j<12; j++){
@@ -376,6 +423,7 @@ extern "C"{
           }
         }
       }
+      _BCG_DD_MIX_VECTOR_TOC_;
     }//iter
     *conviter = iter;
 
@@ -385,6 +433,7 @@ extern "C"{
     free(t);
     free(u);
     free(r0);
+    _BCG_DD_MIX_TOC_;
   }//bicgstab
 
 

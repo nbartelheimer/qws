@@ -564,6 +564,21 @@ endif
 ifeq ($(target),recv)
   CFLAGS += -DPROF_TARGET=TARGET_RECV
 endif
+ifeq ($(target),overlap_probe)
+  CFLAGS += -DPROF_TARGET=TARGET_OVERLAP_PROBE
+endif
+ifeq ($(target),overlap_probe_full)
+  CFLAGS += -DPROF_TARGET=TARGET_OVERLAP_PROBE -DOVERLAP_PROBE_FULL_TIMING
+endif
+ifeq ($(target),overlap_probe_full_light)
+  CFLAGS += -DPROF_TARGET=TARGET_OVERLAP_PROBE -DOVERLAP_PROBE_FULL_TIMING -DOVERLAP_PROBE_CALC_END_ONLY
+endif
+ifeq ($(target),overlap_probe_full_coarse)
+  CFLAGS += -DPROF_TARGET=TARGET_OVERLAP_PROBE -DOVERLAP_PROBE_FULL_TIMING -DOVERLAP_PROBE_COARSE_PHASE
+endif
+ifeq ($(target),overlap_probe_full_wait_only)
+  CFLAGS += -DPROF_TARGET=TARGET_OVERLAP_PROBE -DOVERLAP_PROBE_FULL_TIMING -DOVERLAP_PROBE_WAIT_ONLY
+endif
 ifeq ($(target),reduc1)
   CFLAGS += -DPROF_TARGET=TARGET_REDUC1
 endif

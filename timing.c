@@ -58,7 +58,7 @@
 #include <omp.h>
 #endif
 
-#define MAXCHAR 64
+#define MAXCHAR 160
 
 //extern int nodeid_f;
 //int nodeid_f=0;
@@ -77,21 +77,57 @@ struct timing_node
 
 timing_list *init_timing_node (void);
 double get_clock (void);
+static timing_list *tl = NULL;
+
+static char *copy_timing_id(const char *id)
+{
+  size_t len = strlen(id);
+  char *copy = (char *) malloc(len + 1);
+  if (copy == NULL) return NULL;
+  memcpy(copy, id, len + 1);
+  return copy;
+}
+
+static timing_list *find_timing_node(const char *id)
+{
+  timing_list *cur;
+
+  if (tl == NULL) tl = init_timing_node ();
+  cur = tl;
+
+  for (;;)
+    {
+      if (cur->id == NULL)
+        {
+          cur->id = copy_timing_id(id);
+          return cur;
+        }
+      if (strncmp (id, cur->id, MAXCHAR) == 0) return cur;
+      if (cur->next == NULL)
+        {
+          cur = init_timing_node ();
+          cur->id = copy_timing_id(id);
+          cur->next = tl;
+          tl = cur;
+          return cur;
+        }
+      cur = cur->next;
+    }
+}
 
 void check_timing_ (const char *id)
 {
-  static timing_list *tl = NULL;
   double clock_now = get_clock ();
   timing_list *cur;
 
   FILE *outputfile = stdout;
   if(para_outputfile) outputfile = para_outputfile;
   
-  if (tl == NULL) tl = init_timing_node ();
-  cur = tl;
 #ifdef _OPENMP
   if (omp_get_thread_num() !=0) return;
 #endif
+  if (tl == NULL) tl = init_timing_node ();
+  cur = tl;
   if (id == NULL)
     {
       fprintf (outputfile, "%8s\t%-32s\t%8s\t%12s\t%12s\n",
@@ -107,6 +143,7 @@ void check_timing_ (const char *id)
                   cur->total_time,
                   cur->total_time / (double) cur->call_number);
           cur = cur->next;
+          free (old->id);
           free (old);
         }
 
@@ -117,7 +154,7 @@ void check_timing_ (const char *id)
     {
       if (cur->id == NULL)          /* it's a new id */
         {
-          cur->id = (char*)id;
+          cur->id = copy_timing_id(id);
           cur->recent_start_clock = clock_now;
           break;                /* finished creating the new id */
         }
@@ -154,6 +191,92 @@ void check_timing_ (const char *id)
     }
 }
 
+void add_timing_delta_ (const char *id, const double *elapsed)
+{
+  timing_list *cur;
+
+#ifdef _OPENMP
+  if (omp_get_thread_num() !=0) return;
+#endif
+  if (id == NULL || elapsed == NULL) return;
+  cur = find_timing_node(id);
+  cur->call_number++;
+  cur->total_time += *elapsed;
+}
+
+void print_qws_timer_schema_(void)
+{
+#if defined(PROF_TARGET) && PROF_TARGET == TARGET_OVERLAP_PROBE
+  FILE *outputfile = stdout;
+  if(para_outputfile) outputfile = para_outputfile;
+
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA version:qws-overlap-v1 target:overlap_probe");
+# ifdef OVERLAP_PROBE_FULL_TIMING
+  fprintf(outputfile, " conventional_timers:on");
+# else
+  fprintf(outputfile, " conventional_timers:off");
+# endif
+# ifdef OVERLAP_PROBE_COARSE_PHASE
+  fprintf(outputfile, " probe_mode:coarse_phase");
+# elif defined(OVERLAP_PROBE_CALC_END_ONLY)
+  fprintf(outputfile, " probe_mode:calc_end_only");
+# elif defined(OVERLAP_PROBE_WAIT_ONLY)
+  fprintf(outputfile, " probe_mode:wait_only");
+# else
+  fprintf(outputfile, " probe_mode:full");
+# endif
+  fprintf(outputfile,
+          " unit:sec direction_order:xf,xb,yf,yb,zf,zb,tf,tb\n");
+
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA_SECTION id:bicgstab_dd_mix_ kind:parent aggregation:inclusive\n");
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA_SECTION id:bicgstab_dd_mix_ddd_d_ kind:compute aggregation:exclusive parent:bicgstab_dd_mix_\n");
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA_SECTION id:bicgstab_dd_mix_allreduce_ kind:collective aggregation:exclusive parent:bicgstab_dd_mix_\n");
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA_SECTION id:bicgstab_dd_mix_vector_ kind:compute aggregation:exclusive parent:bicgstab_dd_mix_\n");
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA_SECTION id:approx_inv_dirac_op_ kind:parent aggregation:inclusive\n");
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA_SECTION id:approx_inv_dirac_op_inner_solver_ kind:compute aggregation:exclusive parent:approx_inv_dirac_op_\n");
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA_SECTION id:approx_inv_dirac_op_prec_s_ kind:compute aggregation:exclusive parent:approx_inv_dirac_op_\n");
+
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA_OVERLAP_WINDOW id:prec_ddd.sap.o.ddd_in_accum_addsub compute:ddd_in,accum_addsub comm:halo_recv active_rule:npe_direction_ne_1 group_model:max_active_directions send_wait:after_window\n");
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA_OVERLAP_WINDOW id:prec_ddd.sap.e.ddd_in_accum_addsub compute:ddd_in,accum_addsub comm:halo_recv active_rule:npe_direction_ne_1 group_model:max_active_directions send_wait:after_window\n");
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA_OVERLAP_WINDOW id:prec_ddd.final.e.ddd_in_accum_add compute:ddd_in,accum_add comm:halo_recv active_rule:npe_direction_ne_1 group_model:max_active_directions send_wait:after_window\n");
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA_OVERLAP_WINDOW id:prec_ddd.final.o.ddd_in compute:ddd_in comm:halo_recv active_rule:npe_direction_ne_1 group_model:max_active_directions send_wait:after_window\n");
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA_OVERLAP_WINDOW id:prec_ddd.npe1.e.ddd_in compute:ddd_in comm:halo_recv active_rule:npe_direction_ne_1 group_model:max_active_directions send_wait:after_window\n");
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA_OVERLAP_WINDOW id:prec_ddd.npe1.o.no_calc compute:none comm:halo_recv active_rule:npe_direction_ne_1 group_model:max_active_directions send_wait:after_window\n");
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA_OVERLAP_WINDOW id:assign_mult_wd.e.ddd_in compute:ddd_in comm:halo_recv active_rule:npe_direction_ne_1 group_model:max_active_directions send_wait:after_window\n");
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA_OVERLAP_WINDOW id:assign_mult_wd.o.ddd_in compute:ddd_in comm:halo_recv active_rule:npe_direction_ne_1 group_model:max_active_directions send_wait:after_window\n");
+
+# ifdef OVERLAP_PROBE_COARSE_PHASE
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA_MEASUREMENT hidden_recv_completion:upper_bound_on_coalesced_or_calc_end active_directions:not_collapsed producer_aggregation:none\n");
+# elif defined(OVERLAP_PROBE_WAIT_ONLY)
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA_MEASUREMENT hidden_recv_completion:not_observed active_directions:not_collapsed producer_aggregation:none\n");
+# elif defined(OVERLAP_PROBE_CALC_END_ONLY)
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA_MEASUREMENT hidden_recv_completion:upper_bound_at_calc_end active_directions:not_collapsed producer_aggregation:none\n");
+# else
+  fprintf(outputfile,
+          "QWS_TIMER_SCHEMA_MEASUREMENT hidden_recv_completion:poll_point_observed active_directions:not_collapsed producer_aggregation:none\n");
+# endif
+#endif
+}
+
 timing_list *
 init_timing_node (void)
 {
@@ -182,5 +305,7 @@ get_clock (void)
 // print out timing statistics 
 // exposed to Fortran with underscore convension
 ///////////////////////////////////////////////////////
-void print_timing_(void) { check_timing_ (NULL); }
-
+void print_timing_(void) {
+  print_qws_timer_schema_();
+  check_timing_ (NULL);
+}

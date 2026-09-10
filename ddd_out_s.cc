@@ -388,6 +388,7 @@ static inline void ddd_out_pos_s_noprl(scs_t* __restrict__ out, scs_t* __restric
     xbound_wait(6,4);
     xbound_wait(7,4);
   }
+  _OVERLAP_PROBE_AFTER_WAIT_;
 #ifdef _NO_OMP_SINGLE
 #pragma omp barrier
 #endif // _NO_OMP_SINGLE

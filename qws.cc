@@ -811,14 +811,17 @@ extern "C"{
 	jinv_ddd_in_s_noprl_(&q[vols*domain_e], &s[vols*domain_e], &domain_e, nm);
 	_JINV_DDD_IN_S_TOC_;
 	_DDD_OUT_PRE_S_TIC_;
+	_OVERLAP_PROBE_SET_LABEL_("prec_ddd.sap.o.ddd_in_accum_addsub");
 	ddd_out_pre_s_noprl_(   q, &domain_o);
 	_DDD_OUT_PRE_S_TOC_;
 	_DDD_IN_S_TIC_;
 	ddd_in_s_noprl(&q[vols*domain_o], &q[vols*domain_e], &domain_e);
 	_DDD_IN_S_TOC_;
+	_OVERLAP_PROBE_POLL_("ddd_in");
 	_OTHER_CALC_TIC_;
 	accum_addsub_vols_s_noprl_(&s[vols*domain_e], &in[vols*domain_e],  &q[vols*domain_o]);
 	_OTHER_CALC_TOC_;
+	_OVERLAP_PROBE_POLL_("accum_addsub");
 	_DDD_OUT_POS_S_TIC_;
 	ddd_out_pos_s_noprl_(&s[vols*domain_o], q, &domain_o, (float)kappa);
 	_DDD_OUT_POS_S_TOC_;
@@ -827,14 +830,17 @@ extern "C"{
 	jinv_ddd_in_s_noprl_(&q[vols*domain_o], &s[vols*domain_o], &domain_o, nm);
 	_JINV_DDD_IN_S_TOC_;
 	_DDD_OUT_PRE_S_TIC_;
+	_OVERLAP_PROBE_SET_LABEL_("prec_ddd.sap.e.ddd_in_accum_addsub");
 	ddd_out_pre_s_noprl_(   q, &domain_e);
 	_DDD_OUT_PRE_S_TOC_;
 	_DDD_IN_S_TIC_;
 	ddd_in_s_noprl(&q[vols*domain_e], &q[vols*domain_o], &domain_o);
 	_DDD_IN_S_TOC_;
+	_OVERLAP_PROBE_POLL_("ddd_in");
 	_OTHER_CALC_TIC_;
 	accum_addsub_vols_s_noprl_(&s[vols*domain_o], &in[vols*domain_o],  &q[vols*domain_e]);
 	_OTHER_CALC_TOC_;
+	_OVERLAP_PROBE_POLL_("accum_addsub");
 	_DDD_OUT_POS_S_TIC_;
 	ddd_out_pos_s_noprl_(&s[vols*domain_e], q, &domain_e, (float)kappa);
 	_DDD_OUT_POS_S_TOC_;
@@ -850,12 +856,14 @@ extern "C"{
       _JINV_DDD_IN_S_TOC_;
 
       _DDD_OUT_PRE_S_TIC_;
+      _OVERLAP_PROBE_SET_LABEL_("prec_ddd.final.o.ddd_in");
       ddd_out_pre_s_noprl_(   q, &domain_o);
       _DDD_OUT_PRE_S_TOC_;
 
       _DDD_IN_S_TIC_;
       ddd_in_s_noprl(        &out[vols*domain_e], &q[vols*domain_e], &domain_e);
       _DDD_IN_S_TOC_;
+      _OVERLAP_PROBE_POLL_("ddd_in");
 
       if (npe[1]==1 || npe[2]==1 || npe[3]==1){
       	_DDD_OUT_POS_S_TIC_;
@@ -865,22 +873,25 @@ extern "C"{
       	_JINV_DDD_IN_S_TIC_;
       	jinv_ddd_in_s_noprl_(&q[vols*domain_o], &s[vols*domain_o], &domain_o, nm);
       	_JINV_DDD_IN_S_TOC_;
-      
-      	_DDD_OUT_PRE_S_TIC_;
-      	ddd_out_pre_s_noprl_(  q , &domain_e);
-      	_DDD_OUT_PRE_S_TOC_;
-      
-      	_DDD_IN_S_TIC_;
-      	ddd_in_s_noprl( &out[vols*domain_o], &q[vols*domain_o], &domain_o);
-      	_DDD_IN_S_TOC_;
-      
+
+	_DDD_OUT_PRE_S_TIC_;
+	_OVERLAP_PROBE_SET_LABEL_("prec_ddd.npe1.e.ddd_in");
+	ddd_out_pre_s_noprl_(  q , &domain_e);
+	_DDD_OUT_PRE_S_TOC_;
+
+	_DDD_IN_S_TIC_;
+	ddd_in_s_noprl( &out[vols*domain_o], &q[vols*domain_o], &domain_o);
+	_DDD_IN_S_TOC_;
+	_OVERLAP_PROBE_POLL_("ddd_in");
+
       	_DDD_OUT_POS_S_TIC_;
       	ddd_out_pos_s_noprl_(&out[vols*domain_e], q, &domain_e, (float)mkappa);
       	_DDD_OUT_POS_S_TOC_;
-      
-      	_DDD_OUT_PRE_S_TIC_;
-      	ddd_out_pre_s_noprl_(  q , &domain_o);
-      	_DDD_OUT_PRE_S_TOC_;
+
+	_DDD_OUT_PRE_S_TIC_;
+	_OVERLAP_PROBE_SET_LABEL_("prec_ddd.npe1.o.no_calc");
+	ddd_out_pre_s_noprl_(  q , &domain_o);
+	_DDD_OUT_PRE_S_TOC_;
       
       	_DDD_OUT_POS_S_TIC_;
       	ddd_out_pos_s_noprl_(&out[vols*domain_o], q, &domain_o, (float)mkappa);
@@ -904,16 +915,19 @@ extern "C"{
 	_JINV_DDD_IN_S_TOC_;
 
 	_DDD_OUT_PRE_S_TIC_;
+	_OVERLAP_PROBE_SET_LABEL_("prec_ddd.final.e.ddd_in_accum_add");
 	ddd_out_pre_s_noprl_(  q , &domain_e);
 	_DDD_OUT_PRE_S_TOC_;
 
 	_DDD_IN_S_TIC_;
 	ddd_in_s_noprl( &s[vols*domain_o], &q[vols*domain_o], &domain_o);
 	_DDD_IN_S_TOC_;
+	_OVERLAP_PROBE_POLL_("ddd_in");
 
 	_OTHER_CALC_TIC_;
 	accum_add_vols_s_noprl_(&out[vols*domain_o], &s[vols*domain_o]);
 	_OTHER_CALC_TOC_;
+	_OVERLAP_PROBE_POLL_("accum_add");
 	
 	_DDD_OUT_POS_S_TIC_;
 	ddd_out_pos_s_noprl_(&out[vols*domain_e], q, &domain_e, (float)mkappa);

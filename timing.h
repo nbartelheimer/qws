@@ -52,6 +52,22 @@
 
 #include"profiler.h"
 
+# ifdef __cplusplus
+extern "C" {
+# endif
+void xbound_overlap_probe_begin(void);
+void xbound_overlap_probe_set_label(const char *label);
+void xbound_overlap_probe_poll_labeled(const char *phase);
+void xbound_overlap_probe_calc_end(void);
+void xbound_overlap_probe_after_req_wait(int req);
+void xbound_overlap_probe_after_wait(void);
+void add_timing_delta_(const char *id, const double *elapsed);
+double get_clock(void);
+void print_qws_timer_schema_(void);
+# ifdef __cplusplus
+}
+# endif
+
 #ifndef PROF_SELECTIVE
 #define IF_PROF(A) A
 #else
@@ -128,6 +144,27 @@ extern int prof_flag;
 # define _COMLIB_ISEND_ALL_C_TOC_
 # define _COMLIB_SEND_WAIT_ALL_C_TIC_
 # define _COMLIB_SEND_WAIT_ALL_C_TOC_
+# define _OVERLAP_PROBE_SET_LABEL_(label)
+# define _OVERLAP_PROBE_POLL_(phase)
+# define _OVERLAP_PROBE_AFTER_WAIT_
+# define _BCG_DD_MIX_TIC_
+# define _BCG_DD_MIX_TOC_
+# define _BCG_DD_MIX_DDD_D_TIC_
+# define _BCG_DD_MIX_DDD_D_TOC_
+# define _BCG_DD_MIX_ALLREDUCE_TIC_
+# define _BCG_DD_MIX_ALLREDUCE_TOC_
+# define _BCG_DD_MIX_VECTOR_TIC_
+# define _BCG_DD_MIX_VECTOR_TOC_
+# define _APPROX_INV_DIRAC_OP_TIC_
+# define _APPROX_INV_DIRAC_OP_TOC_
+# define _APPROX_INV_DIRAC_OP_REORDER_D2S_TIC_
+# define _APPROX_INV_DIRAC_OP_REORDER_D2S_TOC_
+# define _APPROX_INV_DIRAC_OP_INNER_SOLVER_TIC_
+# define _APPROX_INV_DIRAC_OP_INNER_SOLVER_TOC_
+# define _APPROX_INV_DIRAC_OP_PREC_S_TIC_
+# define _APPROX_INV_DIRAC_OP_PREC_S_TOC_
+# define _APPROX_INV_DIRAC_OP_REORDER_S2D_TIC_
+# define _APPROX_INV_DIRAC_OP_REORDER_S2D_TOC_
 
 # define TARGET_ALL        1
 # define TARGET_JINV       2
@@ -143,6 +180,7 @@ extern int prof_flag;
 # define TARGET_REDUC1    12
 # define TARGET_REDUC2    13
 # define TARGET_REDUC3    14
+# define TARGET_OVERLAP_PROBE 15
 
 # if PROF_TARGET == TARGET_ALL
 #  undef _BCG_PRECDDS_ITER_TIC_
@@ -242,6 +280,163 @@ extern int prof_flag;
 #  undef _COMLIB_SEND_WAIT_ALL_C_TOC_
 #  define _COMLIB_SEND_WAIT_ALL_C_TIC_ IF_PROF(PROF_START_SRL("comlib_isend_wait_all_c"))
 #  define _COMLIB_SEND_WAIT_ALL_C_TOC_ IF_PROF(PROF_STOP_SRL("comlib_isend_wait_all_c"))
+# elif PROF_TARGET == TARGET_OVERLAP_PROBE
+#  ifdef OVERLAP_PROBE_FULL_TIMING
+#   undef _TIC_
+#   undef _TOC_
+#   undef _BCG_ITER_TIC_
+#   undef _BCG_ITER_TOC_
+#   undef _BCG_DDS_ITER_TIC_
+#   undef _BCG_DDS_ITER_TOC_
+#   undef _BCG_PRECDDS_TIC_
+#   undef _BCG_PRECDDS_TOC_
+#   undef _BCG_PRECDDS_ITER_TIC_
+#   undef _BCG_PRECDDS_ITER_TOC_
+#   undef _BCG_PRECDDS_ITER_REDUC1_TIC_
+#   undef _BCG_PRECDDS_ITER_REDUC1_TOC_
+#   undef _BCG_PRECDDS_ITER_REDUC2_TIC_
+#   undef _BCG_PRECDDS_ITER_REDUC2_TOC_
+#   undef _BCG_PRECDDS_ITER_REDUC3_TIC_
+#   undef _BCG_PRECDDS_ITER_REDUC3_TOC_
+#   undef _BCG_PRECDDS_ITER_BARRIER_BEFORE_REDUC1_TIC_
+#   undef _BCG_PRECDDS_ITER_BARRIER_BEFORE_REDUC1_TOC_
+#   undef _BCG_PRECDDS_ITER_BARRIER_BEFORE_REDUC2_TIC_
+#   undef _BCG_PRECDDS_ITER_BARRIER_BEFORE_REDUC2_TOC_
+#   undef _BCG_PRECDDS_ITER_BARRIER_BEFORE_REDUC3_1_TIC_
+#   undef _BCG_PRECDDS_ITER_BARRIER_BEFORE_REDUC3_1_TOC_
+#   undef _BCG_PRECDDS_ITER_BARRIER_BEFORE_REDUC3_2_TIC_
+#   undef _BCG_PRECDDS_ITER_BARRIER_BEFORE_REDUC3_2_TOC_
+#   undef _MCG_ITER_TIC_
+#   undef _MCG_ITER_TOC_
+#   undef _CG_ITER_TIC_
+#   undef _CG_ITER_TOC_
+#   undef _DEO_IN_TIC_
+#   undef _DEO_IN_TOC_
+#   undef _DEE_DEO_IN_TIC_
+#   undef _DEE_DEO_IN_TOC_
+#   undef _DEO_OUT_PRE_TIC_
+#   undef _DEO_OUT_PRE_TOC_
+#   undef _DEE_DEO_OUT_POST_TIC_
+#   undef _DEE_DEO_OUT_POST_TOC_
+#   undef _MTILDE_TIC_
+#   undef _MTILDE_TOC_
+#   undef _PREC_S_TIC_
+#   undef _PREC_S_TOC_
+#   undef _PREC_DDD_S_TIC_
+#   undef _PREC_DDD_S_TOC_
+#   undef _DDD_IN_S_TIC_
+#   undef _DDD_IN_S_TOC_
+#   undef _JINV_DDD_IN_S_TIC_
+#   undef _JINV_DDD_IN_S_TOC_
+#   undef _DDD_OUT_PRE_S_TIC_
+#   undef _DDD_OUT_PRE_S_TOC_
+#   undef _DDD_OUT_POS_S_TIC_
+#   undef _DDD_OUT_POS_S_TOC_
+#   undef _S_MULT_WD_DEO_OUT_RECV_HPC_CALC_TIC_
+#   undef _S_MULT_WD_DEO_OUT_RECV_HPC_CALC_TOC_
+#   undef _S_MULT_WD_DEO_OUT_SEND_HPC_TIC_
+#   undef _S_MULT_WD_DEO_OUT_SEND_HPC_TOC_
+#   undef _BCG_DD_MIX_TIC_
+#   undef _BCG_DD_MIX_TOC_
+#   undef _BCG_DD_MIX_DDD_D_TIC_
+#   undef _BCG_DD_MIX_DDD_D_TOC_
+#   undef _BCG_DD_MIX_ALLREDUCE_TIC_
+#   undef _BCG_DD_MIX_ALLREDUCE_TOC_
+#   undef _BCG_DD_MIX_VECTOR_TIC_
+#   undef _BCG_DD_MIX_VECTOR_TOC_
+#   undef _APPROX_INV_DIRAC_OP_TIC_
+#   undef _APPROX_INV_DIRAC_OP_TOC_
+#   undef _APPROX_INV_DIRAC_OP_REORDER_D2S_TIC_
+#   undef _APPROX_INV_DIRAC_OP_REORDER_D2S_TOC_
+#   undef _APPROX_INV_DIRAC_OP_INNER_SOLVER_TIC_
+#   undef _APPROX_INV_DIRAC_OP_INNER_SOLVER_TOC_
+#   undef _APPROX_INV_DIRAC_OP_PREC_S_TIC_
+#   undef _APPROX_INV_DIRAC_OP_PREC_S_TOC_
+#   undef _APPROX_INV_DIRAC_OP_REORDER_S2D_TIC_
+#   undef _APPROX_INV_DIRAC_OP_REORDER_S2D_TOC_
+#   define _TIC_                                  IF_PROF(PROF_START(__func__))
+#   define _TOC_                                  IF_PROF( PROF_STOP(__func__))
+#   define _BCG_ITER_TIC_                         IF_PROF(PROF_START("bicgstab_iter_"))
+#   define _BCG_ITER_TOC_                         IF_PROF( PROF_STOP("bicgstab_iter_"))
+#   define _BCG_DDS_ITER_TIC_                     IF_PROF(PROF_START("bicgstab_dd_s_iter_"))
+#   define _BCG_DDS_ITER_TOC_                     IF_PROF( PROF_STOP("bicgstab_dd_s_iter_"))
+#   define _BCG_PRECDDS_TIC_                      IF_PROF(PROF_START("bicgstab_precdd_s_"))
+#   define _BCG_PRECDDS_TOC_                      IF_PROF( PROF_STOP("bicgstab_precdd_s_"))
+#   define _BCG_PRECDDS_ITER_TIC_                 IF_PROF(PROF_START("bicgstab_precdd_s_iter_"))
+#   define _BCG_PRECDDS_ITER_TOC_                 IF_PROF( PROF_STOP("bicgstab_precdd_s_iter_"))
+#   define _BCG_PRECDDS_ITER_REDUC1_TIC_          IF_PROF(PROF_START("bicgstab_precdd_s_iter_reduc1_"))
+#   define _BCG_PRECDDS_ITER_REDUC1_TOC_          IF_PROF( PROF_STOP("bicgstab_precdd_s_iter_reduc1_"))
+#   define _BCG_PRECDDS_ITER_REDUC2_TIC_          IF_PROF(PROF_START("bicgstab_precdd_s_iter_reduc2_"))
+#   define _BCG_PRECDDS_ITER_REDUC2_TOC_          IF_PROF( PROF_STOP("bicgstab_precdd_s_iter_reduc2_"))
+#   define _BCG_PRECDDS_ITER_REDUC3_TIC_          IF_PROF(PROF_START("bicgstab_precdd_s_iter_reduc3_"))
+#   define _BCG_PRECDDS_ITER_REDUC3_TOC_          IF_PROF( PROF_STOP("bicgstab_precdd_s_iter_reduc3_"))
+#   define _BCG_PRECDDS_ITER_BARRIER_BEFORE_REDUC1_TIC_   IF_PROF(PROF_START("bicgstab_precdd_s_iter_bar_reduc1_"))
+#   define _BCG_PRECDDS_ITER_BARRIER_BEFORE_REDUC1_TOC_   IF_PROF( PROF_STOP("bicgstab_precdd_s_iter_bar_reduc1_"))
+#   define _BCG_PRECDDS_ITER_BARRIER_BEFORE_REDUC2_TIC_   IF_PROF(PROF_START("bicgstab_precdd_s_iter_bar_reduc2_"))
+#   define _BCG_PRECDDS_ITER_BARRIER_BEFORE_REDUC2_TOC_   IF_PROF( PROF_STOP("bicgstab_precdd_s_iter_bar_reduc2_"))
+#   define _BCG_PRECDDS_ITER_BARRIER_BEFORE_REDUC3_1_TIC_ IF_PROF(PROF_START("bicgstab_precdd_s_iter_bar_reduc3_1_"))
+#   define _BCG_PRECDDS_ITER_BARRIER_BEFORE_REDUC3_1_TOC_ IF_PROF( PROF_STOP("bicgstab_precdd_s_iter_bar_reduc3_1_"))
+#   define _BCG_PRECDDS_ITER_BARRIER_BEFORE_REDUC3_2_TIC_ IF_PROF(PROF_START("bicgstab_precdd_s_iter_bar_reduc3_2_"))
+#   define _BCG_PRECDDS_ITER_BARRIER_BEFORE_REDUC3_2_TOC_ IF_PROF( PROF_STOP("bicgstab_precdd_s_iter_bar_reduc3_2_"))
+#   define _MCG_ITER_TIC_                         IF_PROF(PROF_START("mcg_iter_"))
+#   define _MCG_ITER_TOC_                         IF_PROF( PROF_STOP("mcg_iter_"))
+#   define _CG_ITER_TIC_                          IF_PROF(PROF_START("cg_iter_"))
+#   define _CG_ITER_TOC_                          IF_PROF( PROF_STOP("cg_iter_"))
+#   define _DEO_IN_TIC_                           IF_PROF(PROF_START("deo_in_"))
+#   define _DEO_IN_TOC_                           IF_PROF( PROF_STOP("deo_in_"))
+#   define _DEE_DEO_IN_TIC_                       IF_PROF(PROF_START("dee_deo_in_"))
+#   define _DEE_DEO_IN_TOC_                       IF_PROF( PROF_STOP("dee_deo_in_"))
+#   define _DEO_OUT_PRE_TIC_                      IF_PROF(PROF_START("deo_out_pre_"))
+#   define _DEO_OUT_PRE_TOC_                      IF_PROF( PROF_STOP("deo_out_pre_"))
+#   define _DEE_DEO_OUT_POST_TIC_                 IF_PROF(PROF_START("dee_deo_out_post_"))
+#   define _DEE_DEO_OUT_POST_TOC_                 IF_PROF( PROF_STOP("dee_deo_out_post_"))
+#   define _MTILDE_TIC_                           IF_PROF(PROF_START("mtilde"))
+#   define _MTILDE_TOC_                           IF_PROF( PROF_STOP("mtilde"))
+#   define _PREC_S_TIC_                           IF_PROF(PROF_START("prec_s_"))
+#   define _PREC_S_TOC_                           IF_PROF( PROF_STOP("prec_s_"))
+#   define _PREC_DDD_S_TIC_                       IF_PROF(PROF_START("prec_ddd_s_"))
+#   define _PREC_DDD_S_TOC_                       IF_PROF( PROF_STOP("prec_ddd_s_"))
+#   define _DDD_IN_S_TIC_                         IF_PROF(PROF_START("ddd_in_s_"))
+#   define _DDD_IN_S_TOC_                         IF_PROF( PROF_STOP("ddd_in_s_"))
+#   define _JINV_DDD_IN_S_TIC_                    IF_PROF(PROF_START_SRL("jinv_ddd_in_s_"))
+#   define _JINV_DDD_IN_S_TOC_                    IF_PROF( PROF_STOP_SRL("jinv_ddd_in_s_"))
+#   define _DDD_OUT_PRE_S_TIC_                    IF_PROF(PROF_START("ddd_out_pre_s_"))
+#   define _DDD_OUT_PRE_S_TOC_                    IF_PROF( PROF_STOP("ddd_out_pre_s_"))
+#   define _DDD_OUT_POS_S_TIC_                    IF_PROF(PROF_START("ddd_out_pos_s_"))
+#   define _DDD_OUT_POS_S_TOC_                    IF_PROF( PROF_STOP("ddd_out_pos_s_"))
+#   define _S_MULT_WD_DEO_OUT_RECV_HPC_CALC_TIC_  IF_PROF(PROF_START_SRL("s_mult_wd_deo_out_recv_hpc_calc_"))
+#   define _S_MULT_WD_DEO_OUT_RECV_HPC_CALC_TOC_  IF_PROF( PROF_STOP_SRL("s_mult_wd_deo_out_recv_hpc_calc_"))
+#   define _S_MULT_WD_DEO_OUT_SEND_HPC_TIC_       IF_PROF(PROF_START_SRL("s_mult_wd_deo_out_send_hpc_"))
+#   define _S_MULT_WD_DEO_OUT_SEND_HPC_TOC_       IF_PROF( PROF_STOP_SRL("s_mult_wd_deo_out_send_hpc_"))
+#   define _BCG_DD_MIX_TIC_                       IF_PROF(PROF_START("bicgstab_dd_mix_"))
+#   define _BCG_DD_MIX_TOC_                       IF_PROF( PROF_STOP("bicgstab_dd_mix_"))
+#   define _BCG_DD_MIX_DDD_D_TIC_                 IF_PROF(PROF_START("bicgstab_dd_mix_ddd_d_"))
+#   define _BCG_DD_MIX_DDD_D_TOC_                 IF_PROF( PROF_STOP("bicgstab_dd_mix_ddd_d_"))
+#   define _BCG_DD_MIX_ALLREDUCE_TIC_             IF_PROF(PROF_START("bicgstab_dd_mix_allreduce_"))
+#   define _BCG_DD_MIX_ALLREDUCE_TOC_             IF_PROF( PROF_STOP("bicgstab_dd_mix_allreduce_"))
+#   define _BCG_DD_MIX_VECTOR_TIC_                IF_PROF(PROF_START("bicgstab_dd_mix_vector_"))
+#   define _BCG_DD_MIX_VECTOR_TOC_                IF_PROF( PROF_STOP("bicgstab_dd_mix_vector_"))
+#   define _APPROX_INV_DIRAC_OP_TIC_              IF_PROF(PROF_START("approx_inv_dirac_op_"))
+#   define _APPROX_INV_DIRAC_OP_TOC_              IF_PROF( PROF_STOP("approx_inv_dirac_op_"))
+#   define _APPROX_INV_DIRAC_OP_REORDER_D2S_TIC_  IF_PROF(PROF_START("approx_inv_dirac_op_reorder_d2s_"))
+#   define _APPROX_INV_DIRAC_OP_REORDER_D2S_TOC_  IF_PROF( PROF_STOP("approx_inv_dirac_op_reorder_d2s_"))
+#   define _APPROX_INV_DIRAC_OP_INNER_SOLVER_TIC_ IF_PROF(PROF_START("approx_inv_dirac_op_inner_solver_"))
+#   define _APPROX_INV_DIRAC_OP_INNER_SOLVER_TOC_ IF_PROF( PROF_STOP("approx_inv_dirac_op_inner_solver_"))
+#   define _APPROX_INV_DIRAC_OP_PREC_S_TIC_       IF_PROF(PROF_START("approx_inv_dirac_op_prec_s_"))
+#   define _APPROX_INV_DIRAC_OP_PREC_S_TOC_       IF_PROF( PROF_STOP("approx_inv_dirac_op_prec_s_"))
+#   define _APPROX_INV_DIRAC_OP_REORDER_S2D_TIC_  IF_PROF(PROF_START("approx_inv_dirac_op_reorder_s2d_"))
+#   define _APPROX_INV_DIRAC_OP_REORDER_S2D_TOC_  IF_PROF( PROF_STOP("approx_inv_dirac_op_reorder_s2d_"))
+#  endif
+#  undef _OVERLAPPED_CALC_TIC_
+#  undef _OVERLAPPED_CALC_TOC_
+#  undef _OVERLAP_PROBE_SET_LABEL_
+#  undef _OVERLAP_PROBE_POLL_
+#  undef _OVERLAP_PROBE_AFTER_WAIT_
+#  define _OVERLAP_PROBE_SET_LABEL_(label) xbound_overlap_probe_set_label(label)
+#  define _OVERLAPPED_CALC_TIC_ xbound_overlap_probe_begin()
+#  define _OVERLAPPED_CALC_TOC_ xbound_overlap_probe_calc_end()
+#  define _OVERLAP_PROBE_POLL_(phase) xbound_overlap_probe_poll_labeled(phase)
+#  define _OVERLAP_PROBE_AFTER_WAIT_ xbound_overlap_probe_after_wait()
 # elif PROF_TARGET == TARGET_REDUC1
 #  undef _BCG_PRECDDS_ITER_REDUC1_TIC_
 #  undef _BCG_PRECDDS_ITER_REDUC1_TOC_
@@ -328,6 +523,27 @@ extern int prof_flag;
 # define _COMLIB_ISEND_ALL_C_TOC_
 # define _COMLIB_SEND_WAIT_ALL_C_TIC_
 # define _COMLIB_SEND_WAIT_ALL_C_TOC_
+# define _OVERLAP_PROBE_SET_LABEL_(label)
+# define _OVERLAP_PROBE_POLL_(phase)
+# define _OVERLAP_PROBE_AFTER_WAIT_
+# define _BCG_DD_MIX_TIC_                       IF_PROF(PROF_START("bicgstab_dd_mix_"))
+# define _BCG_DD_MIX_TOC_                       IF_PROF( PROF_STOP("bicgstab_dd_mix_"))
+# define _BCG_DD_MIX_DDD_D_TIC_                 IF_PROF(PROF_START("bicgstab_dd_mix_ddd_d_"))
+# define _BCG_DD_MIX_DDD_D_TOC_                 IF_PROF( PROF_STOP("bicgstab_dd_mix_ddd_d_"))
+# define _BCG_DD_MIX_ALLREDUCE_TIC_             IF_PROF(PROF_START("bicgstab_dd_mix_allreduce_"))
+# define _BCG_DD_MIX_ALLREDUCE_TOC_             IF_PROF( PROF_STOP("bicgstab_dd_mix_allreduce_"))
+# define _BCG_DD_MIX_VECTOR_TIC_                IF_PROF(PROF_START("bicgstab_dd_mix_vector_"))
+# define _BCG_DD_MIX_VECTOR_TOC_                IF_PROF( PROF_STOP("bicgstab_dd_mix_vector_"))
+# define _APPROX_INV_DIRAC_OP_TIC_              IF_PROF(PROF_START("approx_inv_dirac_op_"))
+# define _APPROX_INV_DIRAC_OP_TOC_              IF_PROF( PROF_STOP("approx_inv_dirac_op_"))
+# define _APPROX_INV_DIRAC_OP_REORDER_D2S_TIC_  IF_PROF(PROF_START("approx_inv_dirac_op_reorder_d2s_"))
+# define _APPROX_INV_DIRAC_OP_REORDER_D2S_TOC_  IF_PROF( PROF_STOP("approx_inv_dirac_op_reorder_d2s_"))
+# define _APPROX_INV_DIRAC_OP_INNER_SOLVER_TIC_ IF_PROF(PROF_START("approx_inv_dirac_op_inner_solver_"))
+# define _APPROX_INV_DIRAC_OP_INNER_SOLVER_TOC_ IF_PROF( PROF_STOP("approx_inv_dirac_op_inner_solver_"))
+# define _APPROX_INV_DIRAC_OP_PREC_S_TIC_       IF_PROF(PROF_START("approx_inv_dirac_op_prec_s_"))
+# define _APPROX_INV_DIRAC_OP_PREC_S_TOC_       IF_PROF( PROF_STOP("approx_inv_dirac_op_prec_s_"))
+# define _APPROX_INV_DIRAC_OP_REORDER_S2D_TIC_  IF_PROF(PROF_START("approx_inv_dirac_op_reorder_s2d_"))
+# define _APPROX_INV_DIRAC_OP_REORDER_S2D_TOC_  IF_PROF( PROF_STOP("approx_inv_dirac_op_reorder_s2d_"))
 #endif
 
 #endif
