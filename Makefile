@@ -319,8 +319,8 @@ else ifeq ($(compiler),nvhpc-hpcx)
   LDFLAGS     =
   SYSLIBS     =
   ifdef omp
-    CC       += -mp
-    CXX      += -mp
+    CC       += -mp=ompt
+    CXX      += -mp=ompt
   endif
 else ifeq ($(compiler),gnu)
     CC        = gcc
