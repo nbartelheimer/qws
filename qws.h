@@ -70,6 +70,7 @@
 
 #ifdef _MPI_
 #include <mpi.h>
+#include <mpi-ext.h>
 #endif
 
 #include <stdio.h>

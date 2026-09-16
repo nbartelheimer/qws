@@ -56,20 +56,20 @@ debug     =
 mpi       =1
 omp       =1
 #compiler [openmpi-gnu, gnu, intel, fujitsu_native, fujitsu_cross, nec, nvhpc-hpcx]
-compiler  =fujitsu_native
+compiler  =openmpi-gnu
 #arch [fx100, postk, skylake, ofp, thunderx2, grace, simulator, sx]
-arch      =postk
+arch      =zen4
 #profiler [timing, fapp, fpcoll, pa, caliper] (nondisclousure: timing2)
 profiler  =timing
-timing2_path=
+#timing2_path=/home/nbartelh/timing2_para.o
 prof_selective=
 #target [jinv, in, pre, pos, other, all, all_calc, overlapped, send, send_post, recv, reduc1, reduc2, reduc3]
-target    =
+target    = all
 half_prec =
 #path to half precision library required in non clang mode
 #libhalf=$(HOME)/opt/half-1.12.0/include
 #rdma [,utofu, utofu_threaded, utofu_threaded_norankmap, mpi_rankmap]  (todo: fjmpi)
-rdma      =utofu_threaded_norankmap
+rdma      =#utofu_threaded_norankmap
 #clangmode : clang mode for fujitsu compiler
 clang     =
 #Power API : Power API for Fugaku and FX1000

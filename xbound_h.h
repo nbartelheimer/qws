@@ -108,22 +108,22 @@
     //////////////////////////////////////////////////////////////////////////////
     // Initialize Persistent Send/Recv requests for ghost/halo sites exchange
     //////////////////////////////////////////////////////////////////////////////
-    MPI_Send_init(xfh_send, 12*ny *nz*nt, MPI_UNSIGNED_SHORT, pxb, 0, MPI_COMM_WORLD, &sh_req[0]);
-    MPI_Send_init(xbh_send, 12*ny *nz*nt, MPI_UNSIGNED_SHORT, pxf, 1, MPI_COMM_WORLD, &sh_req[1]);
-    MPI_Send_init(yfh_send, 12*nxh*nz*nt, MPI_UNSIGNED_SHORT, pyb, 2, MPI_COMM_WORLD, &sh_req[2]);
-    MPI_Send_init(ybh_send, 12*nxh*nz*nt, MPI_UNSIGNED_SHORT, pyf, 3, MPI_COMM_WORLD, &sh_req[3]);
-    MPI_Send_init(zfh_send, 12*nxh*ny*nt, MPI_UNSIGNED_SHORT, pzb, 4, MPI_COMM_WORLD, &sh_req[4]);
-    MPI_Send_init(zbh_send, 12*nxh*ny*nt, MPI_UNSIGNED_SHORT, pzf, 5, MPI_COMM_WORLD, &sh_req[5]);
-    MPI_Send_init(tfh_send, 12*nxh*ny*nz, MPI_UNSIGNED_SHORT, ptb, 6, MPI_COMM_WORLD, &sh_req[6]);
-    MPI_Send_init(tbh_send, 12*nxh*ny*nz, MPI_UNSIGNED_SHORT, ptf, 7, MPI_COMM_WORLD, &sh_req[7]);
-    MPI_Recv_init(xfh_recv, 12*ny *nz*nt, MPI_UNSIGNED_SHORT, pxf, 0, MPI_COMM_WORLD, &rh_req[0]);
-    MPI_Recv_init(xbh_recv, 12*ny *nz*nt, MPI_UNSIGNED_SHORT, pxb, 1, MPI_COMM_WORLD, &rh_req[1]);
-    MPI_Recv_init(yfh_recv, 12*nxh*nz*nt, MPI_UNSIGNED_SHORT, pyf, 2, MPI_COMM_WORLD, &rh_req[2]);
-    MPI_Recv_init(ybh_recv, 12*nxh*nz*nt, MPI_UNSIGNED_SHORT, pyb, 3, MPI_COMM_WORLD, &rh_req[3]);
-    MPI_Recv_init(zfh_recv, 12*nxh*ny*nt, MPI_UNSIGNED_SHORT, pzf, 4, MPI_COMM_WORLD, &rh_req[4]);
-    MPI_Recv_init(zbh_recv, 12*nxh*ny*nt, MPI_UNSIGNED_SHORT, pzb, 5, MPI_COMM_WORLD, &rh_req[5]);
-    MPI_Recv_init(tfh_recv, 12*nxh*ny*nz, MPI_UNSIGNED_SHORT, ptf, 6, MPI_COMM_WORLD, &rh_req[6]);
-    MPI_Recv_init(tbh_recv, 12*nxh*ny*nz, MPI_UNSIGNED_SHORT, ptb, 7, MPI_COMM_WORLD, &rh_req[7]);
+    OMPI_Send_init(xfh_send, 12*ny *nz*nt, MPI_UNSIGNED_SHORT, pxb, 0, MPI_COMM_WORLD, &sh_req[0]);
+    OMPI_Send_init(xbh_send, 12*ny *nz*nt, MPI_UNSIGNED_SHORT, pxf, 1, MPI_COMM_WORLD, &sh_req[1]);
+    OMPI_Send_init(yfh_send, 12*nxh*nz*nt, MPI_UNSIGNED_SHORT, pyb, 2, MPI_COMM_WORLD, &sh_req[2]);
+    OMPI_Send_init(ybh_send, 12*nxh*nz*nt, MPI_UNSIGNED_SHORT, pyf, 3, MPI_COMM_WORLD, &sh_req[3]);
+    OMPI_Send_init(zfh_send, 12*nxh*ny*nt, MPI_UNSIGNED_SHORT, pzb, 4, MPI_COMM_WORLD, &sh_req[4]);
+    OMPI_Send_init(zbh_send, 12*nxh*ny*nt, MPI_UNSIGNED_SHORT, pzf, 5, MPI_COMM_WORLD, &sh_req[5]);
+    OMPI_Send_init(tfh_send, 12*nxh*ny*nz, MPI_UNSIGNED_SHORT, ptb, 6, MPI_COMM_WORLD, &sh_req[6]);
+    OMPI_Send_init(tbh_send, 12*nxh*ny*nz, MPI_UNSIGNED_SHORT, ptf, 7, MPI_COMM_WORLD, &sh_req[7]);
+    OMPI_Recv_init(xfh_recv, 12*ny *nz*nt, MPI_UNSIGNED_SHORT, pxf, 0, MPI_COMM_WORLD, &rh_req[0]);
+    OMPI_Recv_init(xbh_recv, 12*ny *nz*nt, MPI_UNSIGNED_SHORT, pxb, 1, MPI_COMM_WORLD, &rh_req[1]);
+    OMPI_Recv_init(yfh_recv, 12*nxh*nz*nt, MPI_UNSIGNED_SHORT, pyf, 2, MPI_COMM_WORLD, &rh_req[2]);
+    OMPI_Recv_init(ybh_recv, 12*nxh*nz*nt, MPI_UNSIGNED_SHORT, pyb, 3, MPI_COMM_WORLD, &rh_req[3]);
+    OMPI_Recv_init(zfh_recv, 12*nxh*ny*nt, MPI_UNSIGNED_SHORT, pzf, 4, MPI_COMM_WORLD, &rh_req[4]);
+    OMPI_Recv_init(zbh_recv, 12*nxh*ny*nt, MPI_UNSIGNED_SHORT, pzb, 5, MPI_COMM_WORLD, &rh_req[5]);
+    OMPI_Recv_init(tfh_recv, 12*nxh*ny*nz, MPI_UNSIGNED_SHORT, ptf, 6, MPI_COMM_WORLD, &rh_req[6]);
+    OMPI_Recv_init(tbh_recv, 12*nxh*ny*nz, MPI_UNSIGNED_SHORT, ptb, 7, MPI_COMM_WORLD, &rh_req[7]);
 #endif
 
   }
@@ -135,10 +135,10 @@
     if (npe[req/2] != 1) {
 #ifdef _MPI_
       //
-      // it is better to use MPI_Startall by packing all requests having (npe !=1) into a array.
+      // it is better to use OMPI_Startall by packing all requests having (npe !=1) into a array.
       //
-      MPI_Start(&rh_req[req]);
-      MPI_Start(&sh_req[req]);
+      OMPI_Start(&rh_req[req]);
+      OMPI_Start(&sh_req[req]);
 #endif
     } else {
       switch (req) {
@@ -175,7 +175,7 @@
 #if _MPI_
     MPI_Status status;
     if (npe[req/2] != 1) {
-      MPI_Wait(&rh_req[req], &status);
+      OMPI_Wait(&rh_req[req], &status);
     }
 #endif
     return;
@@ -186,12 +186,12 @@
 #if _MPI_
     MPI_Status status;
     //
-    // it is better to use MPI_Waitall by packing all requests with (npe !=1) into a array.
+    // it is better to use OMPI_Waitall by packing all requests with (npe !=1) into a array.
     //
     for (int i=0;i<4;i++) {
       if (npe[i] != 1) {
-        MPI_Wait(&sh_req[0+2*i], &status);
-        MPI_Wait(&sh_req[1+2*i], &status);
+        OMPI_Wait(&sh_req[0+2*i], &status);
+        OMPI_Wait(&sh_req[1+2*i], &status);
       }
     }
 #endif
@@ -202,12 +202,12 @@
 #if _MPI_
     MPI_Status status;
     //
-    // it is better to use MPI_Waitall by packing all requests with (npe !=1) into a array.
+    // it is better to use OMPI_Waitall by packing all requests with (npe !=1) into a array.
     //
     for (int i=0;i<4;i++) {
       if (npe[i] != 1) {
-        MPI_Wait(&rh_req[0+2*i], &status);
-        MPI_Wait(&rh_req[1+2*i], &status);
+        OMPI_Wait(&rh_req[0+2*i], &status);
+        OMPI_Wait(&rh_req[1+2*i], &status);
       }
     }
 #endif

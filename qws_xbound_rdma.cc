@@ -262,22 +262,22 @@ extern "C"{
     // no manual allcoation is needed for RDMA
 
     // initializing communications: double prec.
-    MPI_Send_init(xfd_send, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxb, 0, MPI_COMM_WORLD, &sd_req[0]);
-    MPI_Send_init(xbd_send, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxf, 1, MPI_COMM_WORLD, &sd_req[1]);
-    MPI_Send_init(yfd_send, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyb, 2, MPI_COMM_WORLD, &sd_req[2]);
-    MPI_Send_init(ybd_send, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyf, 3, MPI_COMM_WORLD, &sd_req[3]);
-    MPI_Send_init(zfd_send, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzb, 4, MPI_COMM_WORLD, &sd_req[4]);
-    MPI_Send_init(zbd_send, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzf, 5, MPI_COMM_WORLD, &sd_req[5]);
-    MPI_Send_init(tfd_send, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptb, 6, MPI_COMM_WORLD, &sd_req[6]);
-    MPI_Send_init(tbd_send, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptf, 7, MPI_COMM_WORLD, &sd_req[7]);
-    MPI_Recv_init(xfd_recv, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxf, 0, MPI_COMM_WORLD, &rd_req[0]);
-    MPI_Recv_init(xbd_recv, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxb, 1, MPI_COMM_WORLD, &rd_req[1]);
-    MPI_Recv_init(yfd_recv, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyf, 2, MPI_COMM_WORLD, &rd_req[2]);
-    MPI_Recv_init(ybd_recv, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyb, 3, MPI_COMM_WORLD, &rd_req[3]);
-    MPI_Recv_init(zfd_recv, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzf, 4, MPI_COMM_WORLD, &rd_req[4]);
-    MPI_Recv_init(zbd_recv, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzb, 5, MPI_COMM_WORLD, &rd_req[5]);
-    MPI_Recv_init(tfd_recv, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptf, 6, MPI_COMM_WORLD, &rd_req[6]);
-    MPI_Recv_init(tbd_recv, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptb, 7, MPI_COMM_WORLD, &rd_req[7]);
+    OMPI_Psend_init(xfd_send, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxb, 0, MPI_COMM_WORLD, &sd_req[0]);
+    OMPI_Psend_init(xbd_send, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxf, 1, MPI_COMM_WORLD, &sd_req[1]);
+    OMPI_Psend_init(yfd_send, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyb, 2, MPI_COMM_WORLD, &sd_req[2]);
+    OMPI_Psend_init(ybd_send, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyf, 3, MPI_COMM_WORLD, &sd_req[3]);
+    OMPI_Psend_init(zfd_send, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzb, 4, MPI_COMM_WORLD, &sd_req[4]);
+    OMPI_Psend_init(zbd_send, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzf, 5, MPI_COMM_WORLD, &sd_req[5]);
+    OMPI_Psend_init(tfd_send, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptb, 6, MPI_COMM_WORLD, &sd_req[6]);
+    OMPI_Psend_init(tbd_send, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptf, 7, MPI_COMM_WORLD, &sd_req[7]);
+    OMPI_Precv_init(xfd_recv, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxf, 0, MPI_COMM_WORLD, &rd_req[0]);
+    OMPI_Precv_init(xbd_recv, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxb, 1, MPI_COMM_WORLD, &rd_req[1]);
+    OMPI_Precv_init(yfd_recv, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyf, 2, MPI_COMM_WORLD, &rd_req[2]);
+    OMPI_Precv_init(ybd_recv, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyb, 3, MPI_COMM_WORLD, &rd_req[3]);
+    OMPI_Precv_init(zfd_recv, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzf, 4, MPI_COMM_WORLD, &rd_req[4]);
+    OMPI_Precv_init(zbd_recv, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzb, 5, MPI_COMM_WORLD, &rd_req[5]);
+    OMPI_Precv_init(tfd_recv, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptf, 6, MPI_COMM_WORLD, &rd_req[6]);
+    OMPI_Precv_init(tbd_recv, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptb, 7, MPI_COMM_WORLD, &rd_req[7]);
 
     // initializing communications: single prec.
     rdma_comlib_2buf::comlib_init();
@@ -415,7 +415,7 @@ extern "C"{
   void xbound_start(int req, int prec) {
     if (npe[req/2] != 1) {
       if (prec == 8) {
-        MPI_Start(&rd_req[req]);
+        OMPI_Start(&rd_req[req]);
       }
     }
   }
@@ -424,7 +424,7 @@ extern "C"{
   void xbound(int req, int prec) {
     if (npe[req/2] != 1) {
       if (prec == 8) {
-        MPI_Start(&sd_req[req]);
+        OMPI_Start(&sd_req[req]);
       } else {
         buff_rdma[req].isendrecv();
       }
@@ -496,7 +496,7 @@ extern "C"{
     MPI_Status status;
     if (npe[req/2] != 1) {
       if (prec == 8) {
-        MPI_Wait(&rd_req[req], &status);
+        OMPI_Wait(&rd_req[req], &status);
       } else {
         buff_rdma[req].irecv_check();
       }
@@ -517,8 +517,8 @@ extern "C"{
     if (prec == 8) {
       for (i=0;i<4;i++) {
         if (npe[i] != 1) {
-          MPI_Wait(&sd_req[0+2*i], &status);
-          MPI_Wait(&sd_req[1+2*i], &status);
+          OMPI_Wait(&sd_req[0+2*i], &status);
+          OMPI_Wait(&sd_req[1+2*i], &status);
         }
       }
     } else {
@@ -537,8 +537,8 @@ extern "C"{
     if (prec == 8) {
       for (i=0;i<4;i++) {
         if (npe[i] != 1) {
-          MPI_Wait(&rd_req[0+2*i], &status);
-          MPI_Wait(&rd_req[1+2*i], &status);
+          OMPI_Wait(&rd_req[0+2*i], &status);
+          OMPI_Wait(&rd_req[1+2*i], &status);
         }
       }
     } else {
