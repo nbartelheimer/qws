@@ -137,8 +137,8 @@
       //
       // it is better to use OMPI_Startall by packing all requests having (npe !=1) into a array.
       //
-      OMPI_Start(&rh_req[req]);
-      OMPI_Start(&sh_req[req]);
+      OMPI_Start_no_sync(&rh_req[req]);
+      OMPI_Start_no_sync(&sh_req[req]);
 #endif
     } else {
       switch (req) {

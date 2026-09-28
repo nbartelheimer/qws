@@ -415,7 +415,7 @@ extern "C"{
   void xbound_start(int req, int prec) {
     if (npe[req/2] != 1) {
       if (prec == 8) {
-        OMPI_Start(&rd_req[req]);
+        OMPI_Start_no_sync(&rd_req[req]);
       }
     }
   }
@@ -424,7 +424,7 @@ extern "C"{
   void xbound(int req, int prec) {
     if (npe[req/2] != 1) {
       if (prec == 8) {
-        OMPI_Start(&sd_req[req]);
+        OMPI_Start_no_sync(&sd_req[req]);
       } else {
         buff_rdma[req].isendrecv();
       }

@@ -309,7 +309,7 @@ extern "C"{
     xbound_recv_updateall(4);
     for(int req=0; req<8; req++){ // start recieving
       if (npe[req/2] != 1) {
-	OMPI_Start(&rs_req[req]);
+	OMPI_Start_no_sync(&rs_req[req]);
 	recv_started[req]=1;
       }
     }
@@ -388,7 +388,7 @@ extern "C"{
   void xbound_start(int req, int prec) {
     if (npe[req/2] != 1) {
       if (prec == 8) {
-	OMPI_Start(&rd_req[req]);
+	OMPI_Start_no_sync(&rd_req[req]);
       }
     }
   }
@@ -397,9 +397,9 @@ extern "C"{
   void xbound(int req, int prec) {
     if (npe[req/2] != 1) {
       if (prec == 8) {
-	OMPI_Start(&sd_req[req]);
+	OMPI_Start_no_sync(&sd_req[req]);
       } else {
-	OMPI_Start(&ss_req[req]);
+	OMPI_Start_no_sync(&ss_req[req]);
       }
     } else {
       switch (req) {
@@ -472,7 +472,7 @@ extern "C"{
 	OMPI_Wait(&rs_req[req], &status);
 	recv_started[req]=0;
 	if(!recv_started_opposite[req]){
-	  OMPI_Start(&rs_req_opposite[req]);
+	  OMPI_Start_no_sync(&rs_req_opposite[req]);
 	  recv_started_opposite[req]=1;
 	}
       }
@@ -483,7 +483,7 @@ extern "C"{
     if (prec == 4) {
       if (npe[req/2] != 1){
 	if(!recv_started_opposite[req]){
-	  OMPI_Start(&rs_req_opposite[req]);
+	  OMPI_Start_no_sync(&rs_req_opposite[req]);
 	  recv_started_opposite[req]=1;
 	}
       }
