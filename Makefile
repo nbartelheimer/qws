@@ -58,18 +58,18 @@ omp       =1
 #compiler [openmpi-gnu, gnu, intel, fujitsu_native, fujitsu_cross, nec, nvhpc-hpcx]
 compiler  =openmpi-gnu
 #arch [fx100, postk, skylake, ofp, thunderx2, grace, simulator, sx]
-arch      =zen4
+arch      =postk
 #profiler [timing, fapp, fpcoll, pa, caliper] (nondisclousure: timing2)
 profiler  =timing
 #timing2_path=/home/nbartelh/timing2_para.o
 prof_selective=
 #target [jinv, in, pre, pos, other, all, all_calc, overlapped, send, send_post, recv, reduc1, reduc2, reduc3]
-target    = all
+target    = 
 half_prec =
 #path to half precision library required in non clang mode
 #libhalf=$(HOME)/opt/half-1.12.0/include
 #rdma [,utofu, utofu_threaded, utofu_threaded_norankmap, mpi_rankmap]  (todo: fjmpi)
-rdma      =#utofu_threaded_norankmap
+rdma      = 
 #clangmode : clang mode for fujitsu compiler
 clang     =
 #Power API : Power API for Fugaku and FX1000
@@ -123,8 +123,8 @@ ifeq ($(compiler),openmpi-gnu)
     CXX       = g++
     F90       = gfortran
   endif
-  MYFLAGS    += -D_CHECK_TIMING
-  CFLAGS      = -g
+  MYFLAGS    += -D_CHECK_TIMING -D_NO_OMP_SINGLE
+  CFLAGS      = -g -mcpu=a64fx -O3 -msve-vector-bits=512 -ffast-math
   CXXFLAGS    = $(CFLAGS) -std=gnu++11
   CXXFLAGS_A  = $(CFLAGS) -std=gnu++11
   LDFLAGS=
