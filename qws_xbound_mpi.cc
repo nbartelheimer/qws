@@ -48,6 +48,7 @@
 //
 //****************************************************************************************
 #include "qws.h"
+#include <iostream>
 //#define min(a,b) (a)>(b)?(b):(a) 
 
 //#include "timing.h"
@@ -263,43 +264,43 @@ extern "C"{
     }
 
     // initializing communications: double prec.
-    OMPI_Psend_init(xfd_send, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxb, 0, MPI_COMM_WORLD, &sd_req[0]);
-    OMPI_Psend_init(xbd_send, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxf, 1, MPI_COMM_WORLD, &sd_req[1]);
-    OMPI_Psend_init(yfd_send, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyb, 2, MPI_COMM_WORLD, &sd_req[2]);
-    OMPI_Psend_init(ybd_send, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyf, 3, MPI_COMM_WORLD, &sd_req[3]);
-    OMPI_Psend_init(zfd_send, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzb, 4, MPI_COMM_WORLD, &sd_req[4]);
-    OMPI_Psend_init(zbd_send, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzf, 5, MPI_COMM_WORLD, &sd_req[5]);
-    OMPI_Psend_init(tfd_send, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptb, 6, MPI_COMM_WORLD, &sd_req[6]);
-    OMPI_Psend_init(tbd_send, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptf, 7, MPI_COMM_WORLD, &sd_req[7]);
-    OMPI_Precv_init(xfd_recv, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxf, 0, MPI_COMM_WORLD, &rd_req[0]);
-    OMPI_Precv_init(xbd_recv, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxb, 1, MPI_COMM_WORLD, &rd_req[1]);
-    OMPI_Precv_init(yfd_recv, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyf, 2, MPI_COMM_WORLD, &rd_req[2]);
-    OMPI_Precv_init(ybd_recv, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyb, 3, MPI_COMM_WORLD, &rd_req[3]);
-    OMPI_Precv_init(zfd_recv, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzf, 4, MPI_COMM_WORLD, &rd_req[4]);
-    OMPI_Precv_init(zbd_recv, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzb, 5, MPI_COMM_WORLD, &rd_req[5]);
-    OMPI_Precv_init(tfd_recv, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptf, 6, MPI_COMM_WORLD, &rd_req[6]);
-    OMPI_Precv_init(tbd_recv, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptb, 7, MPI_COMM_WORLD, &rd_req[7]);
+    CHECK(OMPI_Psend_init(xfd_send, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxb, 0, MPI_COMM_WORLD, &sd_req[0]));
+    CHECK(OMPI_Psend_init(xbd_send, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxf, 1, MPI_COMM_WORLD, &sd_req[1]));
+    CHECK(OMPI_Psend_init(yfd_send, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyb, 2, MPI_COMM_WORLD, &sd_req[2]));
+    CHECK(OMPI_Psend_init(ybd_send, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyf, 3, MPI_COMM_WORLD, &sd_req[3]));
+    CHECK(OMPI_Psend_init(zfd_send, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzb, 4, MPI_COMM_WORLD, &sd_req[4]));
+    CHECK(OMPI_Psend_init(zbd_send, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzf, 5, MPI_COMM_WORLD, &sd_req[5]));
+    CHECK(OMPI_Psend_init(tfd_send, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptb, 6, MPI_COMM_WORLD, &sd_req[6]));
+    CHECK(OMPI_Psend_init(tbd_send, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptf, 7, MPI_COMM_WORLD, &sd_req[7]));
+    CHECK(OMPI_Precv_init(xfd_recv, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxf, 0, MPI_COMM_WORLD, &rd_req[0]));
+    CHECK(OMPI_Precv_init(xbd_recv, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxb, 1, MPI_COMM_WORLD, &rd_req[1]));
+    CHECK(OMPI_Precv_init(yfd_recv, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyf, 2, MPI_COMM_WORLD, &rd_req[2]));
+    CHECK(OMPI_Precv_init(ybd_recv, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyb, 3, MPI_COMM_WORLD, &rd_req[3]));
+    CHECK(OMPI_Precv_init(zfd_recv, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzf, 4, MPI_COMM_WORLD, &rd_req[4]));
+    CHECK(OMPI_Precv_init(zbd_recv, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzb, 5, MPI_COMM_WORLD, &rd_req[5]));
+    CHECK(OMPI_Precv_init(tfd_recv, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptf, 6, MPI_COMM_WORLD, &rd_req[6]));
+    CHECK(OMPI_Precv_init(tbd_recv, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptb, 7, MPI_COMM_WORLD, &rd_req[7]));
 
     // initializing communications: single prec.
     for(int parity=0; parity<2; parity++){
       // send buffers are common for both parity
       int tag0=parity*8+8;
-      OMPI_Psend_init(xfs_send, 12*ny *nz*nt, MPI_REAL, pxb, tag0+0, MPI_COMM_WORLD, &ss_req_array[parity][0]);
-      OMPI_Psend_init(xbs_send, 12*ny *nz*nt, MPI_REAL, pxf, tag0+1, MPI_COMM_WORLD, &ss_req_array[parity][1]);
-      OMPI_Psend_init(yfs_send, 12*nxh*nz*nt, MPI_REAL, pyb, tag0+2, MPI_COMM_WORLD, &ss_req_array[parity][2]);
-      OMPI_Psend_init(ybs_send, 12*nxh*nz*nt, MPI_REAL, pyf, tag0+3, MPI_COMM_WORLD, &ss_req_array[parity][3]);
-      OMPI_Psend_init(zfs_send, 12*nxh*ny*nt, MPI_REAL, pzb, tag0+4, MPI_COMM_WORLD, &ss_req_array[parity][4]);
-      OMPI_Psend_init(zbs_send, 12*nxh*ny*nt, MPI_REAL, pzf, tag0+5, MPI_COMM_WORLD, &ss_req_array[parity][5]);
-      OMPI_Psend_init(tfs_send, 12*nxh*ny*nz, MPI_REAL, ptb, tag0+6, MPI_COMM_WORLD, &ss_req_array[parity][6]);
-      OMPI_Psend_init(tbs_send, 12*nxh*ny*nz, MPI_REAL, ptf, tag0+7, MPI_COMM_WORLD, &ss_req_array[parity][7]);
-      OMPI_Precv_init(xfs_recv_array[parity], 12*ny *nz*nt, MPI_REAL, pxf, tag0+0, MPI_COMM_WORLD, &rs_req_array[parity][0]);
-      OMPI_Precv_init(xbs_recv_array[parity], 12*ny *nz*nt, MPI_REAL, pxb, tag0+1, MPI_COMM_WORLD, &rs_req_array[parity][1]);
-      OMPI_Precv_init(yfs_recv_array[parity], 12*nxh*nz*nt, MPI_REAL, pyf, tag0+2, MPI_COMM_WORLD, &rs_req_array[parity][2]);
-      OMPI_Precv_init(ybs_recv_array[parity], 12*nxh*nz*nt, MPI_REAL, pyb, tag0+3, MPI_COMM_WORLD, &rs_req_array[parity][3]);
-      OMPI_Precv_init(zfs_recv_array[parity], 12*nxh*ny*nt, MPI_REAL, pzf, tag0+4, MPI_COMM_WORLD, &rs_req_array[parity][4]);
-      OMPI_Precv_init(zbs_recv_array[parity], 12*nxh*ny*nt, MPI_REAL, pzb, tag0+5, MPI_COMM_WORLD, &rs_req_array[parity][5]);
-      OMPI_Precv_init(tfs_recv_array[parity], 12*nxh*ny*nz, MPI_REAL, ptf, tag0+6, MPI_COMM_WORLD, &rs_req_array[parity][6]);
-      OMPI_Precv_init(tbs_recv_array[parity], 12*nxh*ny*nz, MPI_REAL, ptb, tag0+7, MPI_COMM_WORLD, &rs_req_array[parity][7]);
+      CHECK(OMPI_Psend_init(xfs_send, 12*ny *nz*nt, MPI_REAL, pxb, tag0+0, MPI_COMM_WORLD, &ss_req_array[parity][0]));
+      CHECK(OMPI_Psend_init(xbs_send, 12*ny *nz*nt, MPI_REAL, pxf, tag0+1, MPI_COMM_WORLD, &ss_req_array[parity][1]));
+      CHECK(OMPI_Psend_init(yfs_send, 12*nxh*nz*nt, MPI_REAL, pyb, tag0+2, MPI_COMM_WORLD, &ss_req_array[parity][2]));
+      CHECK(OMPI_Psend_init(ybs_send, 12*nxh*nz*nt, MPI_REAL, pyf, tag0+3, MPI_COMM_WORLD, &ss_req_array[parity][3]));
+      CHECK(OMPI_Psend_init(zfs_send, 12*nxh*ny*nt, MPI_REAL, pzb, tag0+4, MPI_COMM_WORLD, &ss_req_array[parity][4]));
+      CHECK(OMPI_Psend_init(zbs_send, 12*nxh*ny*nt, MPI_REAL, pzf, tag0+5, MPI_COMM_WORLD, &ss_req_array[parity][5]));
+      CHECK(OMPI_Psend_init(tfs_send, 12*nxh*ny*nz, MPI_REAL, ptb, tag0+6, MPI_COMM_WORLD, &ss_req_array[parity][6]));
+      CHECK(OMPI_Psend_init(tbs_send, 12*nxh*ny*nz, MPI_REAL, ptf, tag0+7, MPI_COMM_WORLD, &ss_req_array[parity][7]));
+      CHECK(OMPI_Precv_init(xfs_recv_array[parity], 12*ny *nz*nt, MPI_REAL, pxf, tag0+0, MPI_COMM_WORLD, &rs_req_array[parity][0]));
+      CHECK(OMPI_Precv_init(xbs_recv_array[parity], 12*ny *nz*nt, MPI_REAL, pxb, tag0+1, MPI_COMM_WORLD, &rs_req_array[parity][1]));
+      CHECK(OMPI_Precv_init(yfs_recv_array[parity], 12*nxh*nz*nt, MPI_REAL, pyf, tag0+2, MPI_COMM_WORLD, &rs_req_array[parity][2]));
+      CHECK(OMPI_Precv_init(ybs_recv_array[parity], 12*nxh*nz*nt, MPI_REAL, pyb, tag0+3, MPI_COMM_WORLD, &rs_req_array[parity][3]));
+      CHECK(OMPI_Precv_init(zfs_recv_array[parity], 12*nxh*ny*nt, MPI_REAL, pzf, tag0+4, MPI_COMM_WORLD, &rs_req_array[parity][4]));
+      CHECK(OMPI_Precv_init(zbs_recv_array[parity], 12*nxh*ny*nt, MPI_REAL, pzb, tag0+5, MPI_COMM_WORLD, &rs_req_array[parity][5]));
+      CHECK(OMPI_Precv_init(tfs_recv_array[parity], 12*nxh*ny*nz, MPI_REAL, ptf, tag0+6, MPI_COMM_WORLD, &rs_req_array[parity][6]));
+      CHECK(OMPI_Precv_init(tbs_recv_array[parity], 12*nxh*ny*nz, MPI_REAL, ptb, tag0+7, MPI_COMM_WORLD, &rs_req_array[parity][7]));
       for(int i=0; i<8; i++){
 	recv_started_array[parity][i]=0;
       }
@@ -309,7 +310,7 @@ extern "C"{
     xbound_recv_updateall(4);
     for(int req=0; req<8; req++){ // start recieving
       if (npe[req/2] != 1) {
-	OMPI_Start(&rs_req[req]);
+	CHECK(OMPI_Start(&rs_req[req]));
 	recv_started[req]=1;
       }
     }
@@ -319,6 +320,7 @@ extern "C"{
 
     // make sure all the communications are finished
     MPI_Barrier(MPI_COMM_WORLD);
+    std::cout << "Finalizing" << std::endl;
 
     // stop recieving
     //MPI_Status status;
@@ -388,7 +390,7 @@ extern "C"{
   void xbound_start(int req, int prec) {
     if (npe[req/2] != 1) {
       if (prec == 8) {
-	OMPI_Start(&rd_req[req]);
+	CHECK(OMPI_Start(&rd_req[req]));
       }
     }
   }
@@ -397,9 +399,9 @@ extern "C"{
   void xbound(int req, int prec) {
     if (npe[req/2] != 1) {
       if (prec == 8) {
-	OMPI_Start(&sd_req[req]);
+	CHECK(OMPI_Start(&sd_req[req]));
       } else {
-	OMPI_Start(&ss_req[req]);
+	CHECK(OMPI_Start(&ss_req[req]));
       }
     } else {
       switch (req) {
@@ -467,12 +469,12 @@ extern "C"{
     MPI_Status status;
     if (npe[req/2] != 1) {
       if (prec == 8) {
-	OMPI_Wait(&rd_req[req], &status);
+	CHECK(OMPI_Wait(&rd_req[req], &status));
       } else {
-	OMPI_Wait(&rs_req[req], &status);
+	CHECK(OMPI_Wait(&rs_req[req], &status));
 	recv_started[req]=0;
 	if(!recv_started_opposite[req]){
-	  OMPI_Start(&rs_req_opposite[req]);
+	  CHECK(OMPI_Start(&rs_req_opposite[req]));
 	  recv_started_opposite[req]=1;
 	}
       }
@@ -483,7 +485,7 @@ extern "C"{
     if (prec == 4) {
       if (npe[req/2] != 1){
 	if(!recv_started_opposite[req]){
-	  OMPI_Start(&rs_req_opposite[req]);
+	  CHECK(OMPI_Start(&rs_req_opposite[req]));
 	  recv_started_opposite[req]=1;
 	}
       }
@@ -496,15 +498,15 @@ extern "C"{
     if (prec == 8) {
       for (i=0;i<4;i++) {
 	if (npe[i] != 1) {
-	  OMPI_Wait(&sd_req[0+2*i], &status);
-	  OMPI_Wait(&sd_req[1+2*i], &status);
+	 CHECK( OMPI_Wait(&sd_req[0+2*i], &status));
+	 CHECK( OMPI_Wait(&sd_req[1+2*i], &status));
 	}
       }
     } else {
       for (i=0;i<4;i++) {
 	if (npe[i] != 1) {
-	  OMPI_Wait(&ss_req[0+2*i], &status);
-	  OMPI_Wait(&ss_req[1+2*i], &status);
+	  CHECK(OMPI_Wait(&ss_req[0+2*i], &status));
+	  CHECK(OMPI_Wait(&ss_req[1+2*i], &status));
 	}
       }
     }

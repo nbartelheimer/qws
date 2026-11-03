@@ -71,6 +71,20 @@
 #ifdef _MPI_
 #include <mpi.h>
 #include <mpi-ext.h>
+#include <mpi.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#define CHECK(call)                                                   \
+    do {                                                              \
+        int mpi_error_ = (call);                                       \
+        if (mpi_error_ != MPI_SUCCESS) {                               \
+            fprintf(stderr, "%s failed with MPI error code %d\n",      \
+                    #call, mpi_error_);                                \
+            MPI_Abort(MPI_COMM_WORLD, mpi_error_);                     \
+            exit(EXIT_FAILURE);                                       \
+        }                                                             \
+    } while (0)
 #endif
 
 #include <stdio.h>
