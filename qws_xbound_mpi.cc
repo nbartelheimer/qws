@@ -320,7 +320,6 @@ extern "C"{
 
     // make sure all the communications are finished
     MPI_Barrier(MPI_COMM_WORLD);
-    std::cout << "Finalizing" << std::endl;
 
     // stop recieving
     //MPI_Status status;
