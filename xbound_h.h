@@ -137,8 +137,8 @@
       //
       // it is better to use QWS_PRISM_STARTALL by packing all requests having (npe !=1) into a array.
       //
-      CHECK(QWS_PRISM_START(&rh_req[req]));
-      CHECK(QWS_PRISM_START(&sh_req[req]));
+      CHECK(OMPI_Start(&rh_req[req]));
+      CHECK(OMPI_Start(&sh_req[req]));
 #endif
     } else {
       switch (req) {

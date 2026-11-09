@@ -417,10 +417,11 @@ extern "C"{
   }
 
   //---------------------------------------------------------------------------------------- COMM
+  // Double-precision halos have one receive buffer: retain receiver-ready synchronization.
   void xbound_start(int req, int prec) {
     if (npe[req/2] != 1) {
       if (prec == 8) {
-        CHECK(QWS_PRISM_START(&rd_req[req]));
+        CHECK(OMPI_Start(&rd_req[req]));
       }
     }
   }
@@ -429,7 +430,7 @@ extern "C"{
   void xbound(int req, int prec) {
     if (npe[req/2] != 1) {
       if (prec == 8) {
-        CHECK(QWS_PRISM_START(&sd_req[req]));
+        CHECK(OMPI_Start(&sd_req[req]));
       } else {
         buff_rdma[req].isendrecv();
       }

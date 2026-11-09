@@ -50,6 +50,9 @@ with tempfile.TemporaryDirectory(prefix='qws-prism-build-') as directory:
     assert 'OMPI_Wait' in symbols
     wanted = 'OMPI_Start_no_sync' if 'QWS_PRISM_START OMPI_Start_no_sync' in (root/'qws_prism.h').read_text() else 'OMPI_Start'
     assert any(line.split()[-1] == wanted for line in symbols.splitlines())
+    if wanted == 'OMPI_Start_no_sync':
+      # The single-buffered double-precision path must retain receiver readiness.
+      assert any(line.split()[-1] == 'OMPI_Start' for line in symbols.splitlines())
     print('PASS extension request isolation', name, wanted, flush=True)
 
   result = subprocess.run(common+['-DPROF_TARGET=TARGET_OVERLAP_PROBE',

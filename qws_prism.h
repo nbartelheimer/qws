@@ -9,7 +9,7 @@
 
 // Both branches share request allocation, waits, cleanup, and instrumentation.
 // The no-sync branch changes only the start operation used by these adapters.
-#define QWS_PRISM_START OMPI_Start
-#define QWS_PRISM_STARTALL OMPI_Startall
+#define QWS_PRISM_START OMPI_Start_no_sync
+#define QWS_PRISM_STARTALL OMPI_Startall_no_sync
 
 #endif
