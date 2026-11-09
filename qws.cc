@@ -130,6 +130,10 @@ extern "C"{
   void qws_init_(int* lx,  int* ly, int* lz, int* lt, 
 		 int* npe_f, int* fbc_f, int* pce_f, int* pco_f, int* block_size){
 
+#ifdef _MPI_
+    CHECK(MPI_Comm_set_errhandler(MPI_COMM_WORLD, MPI_ERRORS_RETURN));
+    CHECK(MPI_Comm_set_errhandler(MPI_COMM_SELF, MPI_ERRORS_RETURN));
+#endif
     int i;
     pce = pce_f;
     pco = pco_f;
@@ -199,7 +203,7 @@ extern "C"{
     if (size != npe[0]*npe[1]*npe[2]*npe[3]) {
       printf("MPI size /= npe[0]*npe[1]*npe[2]*npe[3]\n size=%d, npe[0]*npe[1]*npe[2]*npe[3]=%d\nStop.\n",size,npe[0]*npe[1]*npe[2]*npe[3]);
 #ifdef _MPI_
-      MPI_Finalize();
+      CHECK(MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE));
 #endif
     }
 #ifdef _CHECK_TIMING

@@ -78,3 +78,7 @@ mpirun -n 2  ./main 32 6 6 8   1 1 1 2    -1   -1  6 50 > CASE6
 mpirun -n 8  ./main 32 6 4 3   1 2 2 2    -1   -1  6 50 > CASE7
 mpirun -n 16 ./main 32 6 4 3   4 4 1 1    -1   -1  6 50 > CASE8
 mpirun -n 16 ./main 32 6 4 3   1 1 4 4    -1   -1  6 50 > CASE9
+
+10) PRISM extension backend
+See README_PRISM.md for build options, required MPI thread support, request
+cleanup, no-sync starts, and the supported wait-only overlap probe.

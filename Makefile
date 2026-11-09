@@ -56,9 +56,9 @@ debug     =
 mpi       =1
 omp       =1
 #compiler [openmpi-gnu, gnu, intel, fujitsu_native, fujitsu_cross, nec, nvhpc-hpcx]
-compiler  =fujitsu_native
+compiler  =openmpi-gnu
 #arch [fx100, postk, skylake, ofp, thunderx2, grace, simulator, sx]
-arch      =postk
+arch      =skylake
 #profiler [timing, fapp, fpcoll, pa, caliper] (nondisclousure: timing2)
 profiler  =timing
 timing2_path=
@@ -69,7 +69,7 @@ half_prec =
 #path to half precision library required in non clang mode
 #libhalf=$(HOME)/opt/half-1.12.0/include
 #rdma [,utofu, utofu_threaded, utofu_threaded_norankmap, mpi_rankmap]  (todo: fjmpi)
-rdma      =utofu_threaded_norankmap
+rdma      =
 #clangmode : clang mode for fujitsu compiler
 clang     =
 #Power API : Power API for Fugaku and FX1000
@@ -532,61 +532,61 @@ ifdef strong_prefetch
 endif
 
 ifeq ($(target),all)
-  CFLAGS += -DPROF_TARGET=TARGET_ALL
+  MYFLAGS += -DPROF_TARGET=TARGET_ALL
 endif
 ifeq ($(target),jinv)
-  CFLAGS += -DPROF_TARGET=TARGET_JINV
+  MYFLAGS += -DPROF_TARGET=TARGET_JINV
 endif
 ifeq ($(target),in)
-  CFLAGS += -DPROF_TARGET=TARGET_IN
+  MYFLAGS += -DPROF_TARGET=TARGET_IN
 endif
 ifeq ($(target),pre)
-  CFLAGS += -DPROF_TARGET=TARGET_PRE
+  MYFLAGS += -DPROF_TARGET=TARGET_PRE
 endif
 ifeq ($(target),pos)
-  CFLAGS += -DPROF_TARGET=TARGET_POS
+  MYFLAGS += -DPROF_TARGET=TARGET_POS
 endif
 ifeq ($(target),other)
-  CFLAGS += -DPROF_TARGET=TARGET_OTHER
+  MYFLAGS += -DPROF_TARGET=TARGET_OTHER
 endif
 ifeq ($(target),all_calc)
-  CFLAGS += -DPROF_TARGET=TARGET_ALL_CALC
+  MYFLAGS += -DPROF_TARGET=TARGET_ALL_CALC
 endif
 ifeq ($(target),overlapped)
-  CFLAGS += -DPROF_TARGET=TARGET_OVERLAPPED
+  MYFLAGS += -DPROF_TARGET=TARGET_OVERLAPPED
 endif
 ifeq ($(target),send)
-  CFLAGS += -DPROF_TARGET=TARGET_SEND
+  MYFLAGS += -DPROF_TARGET=TARGET_SEND
 endif
 ifeq ($(target),send_post)
-  CFLAGS += -DPROF_TARGET=TARGET_SEND_POST
+  MYFLAGS += -DPROF_TARGET=TARGET_SEND_POST
 endif
 ifeq ($(target),recv)
-  CFLAGS += -DPROF_TARGET=TARGET_RECV
+  MYFLAGS += -DPROF_TARGET=TARGET_RECV
 endif
 ifeq ($(target),overlap_probe)
-  CFLAGS += -DPROF_TARGET=TARGET_OVERLAP_PROBE
+  MYFLAGS += -DPROF_TARGET=TARGET_OVERLAP_PROBE
 endif
 ifeq ($(target),overlap_probe_full)
-  CFLAGS += -DPROF_TARGET=TARGET_OVERLAP_PROBE -DOVERLAP_PROBE_FULL_TIMING
+  MYFLAGS += -DPROF_TARGET=TARGET_OVERLAP_PROBE -DOVERLAP_PROBE_FULL_TIMING
 endif
 ifeq ($(target),overlap_probe_full_light)
-  CFLAGS += -DPROF_TARGET=TARGET_OVERLAP_PROBE -DOVERLAP_PROBE_FULL_TIMING -DOVERLAP_PROBE_CALC_END_ONLY
+  MYFLAGS += -DPROF_TARGET=TARGET_OVERLAP_PROBE -DOVERLAP_PROBE_FULL_TIMING -DOVERLAP_PROBE_CALC_END_ONLY
 endif
 ifeq ($(target),overlap_probe_full_coarse)
-  CFLAGS += -DPROF_TARGET=TARGET_OVERLAP_PROBE -DOVERLAP_PROBE_FULL_TIMING -DOVERLAP_PROBE_COARSE_PHASE
+  MYFLAGS += -DPROF_TARGET=TARGET_OVERLAP_PROBE -DOVERLAP_PROBE_FULL_TIMING -DOVERLAP_PROBE_COARSE_PHASE
 endif
 ifeq ($(target),overlap_probe_full_wait_only)
-  CFLAGS += -DPROF_TARGET=TARGET_OVERLAP_PROBE -DOVERLAP_PROBE_FULL_TIMING -DOVERLAP_PROBE_WAIT_ONLY
+  MYFLAGS += -DPROF_TARGET=TARGET_OVERLAP_PROBE -DOVERLAP_PROBE_FULL_TIMING -DOVERLAP_PROBE_WAIT_ONLY
 endif
 ifeq ($(target),reduc1)
-  CFLAGS += -DPROF_TARGET=TARGET_REDUC1
+  MYFLAGS += -DPROF_TARGET=TARGET_REDUC1
 endif
 ifeq ($(target),reduc2)
-  CFLAGS += -DPROF_TARGET=TARGET_REDUC2
+  MYFLAGS += -DPROF_TARGET=TARGET_REDUC2
 endif
 ifeq ($(target),reduc3)
-  CFLAGS += -DPROF_TARGET=TARGET_REDUC3
+  MYFLAGS += -DPROF_TARGET=TARGET_REDUC3
 endif
 
 ifeq ($(profiler),caliper)
@@ -594,10 +594,10 @@ ifeq ($(profiler),caliper)
   LDFLAGS += -L$(CALIPER_DIR)/lib64 -lcaliper -Wl,-rpath,$(CALIPER_DIR)/lib64
 endif
 ifeq ($(profiler),timing)
-  CFLAGS += -D_CHECK_TIMING
+  MYFLAGS += -D_CHECK_TIMING
 endif
 ifeq ($(profiler),timing2)
-  CFLAGS += -D_CHECK_TIMING2
+  MYFLAGS += -D_CHECK_TIMING2
   OBJS   += $(timing2_path)
   CFLAGS += -I.
 endif
@@ -642,7 +642,15 @@ fast:
 	$(MAKE) main
 endif
 
+# PRISM calls originate from the master thread in the MPI/OpenMP backend.
+ifdef mpi
+  MYFLAGS += -D_NO_OMP_SINGLE
+endif
+
 DELIVERABLES=main libqws.a
+
+$(OBJS) $(MAIN) qws_bqcd.o: mpi_check.h qws_prism.h
+timing.o: timing.h profiler.h
 
 install: $(DELIVERABLES)
 	install $(DELIVERABLES) $(PREFIX)

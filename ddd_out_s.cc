@@ -340,6 +340,9 @@ static inline void ddd_out_pre_s_noprl(scs_t* __restrict__  in, int* __restrict_
 template<bool is_timer_enabled>
 static inline void ddd_out_pos_s_noprl(scs_t* __restrict__ out, scs_t* __restrict__ in, int* idomain, float factor) {
 
+  // Finish send initiation before receive waits, including callers with no bulk work.
+#pragma omp barrier
+
 #ifdef COMPILE_TIME_DIM_SIZE
     const long int nxs = NXS, ny = NY, nz = NZ, nt = NT;
     const long int vols = VOLS;

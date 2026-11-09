@@ -49,6 +49,9 @@
 //****************************************************************************************
 #include "qws.h"
 #include "timing.h"
+#if defined(PROF_TARGET) && PROF_TARGET == TARGET_OVERLAP_PROBE && !defined(OVERLAP_PROBE_WAIT_ONLY)
+#error "PRISM has no OMPI_Test; use target=overlap_probe_full_wait_only for completion-at-wait observations"
+#endif
 #include <stdio.h>
 #include <string.h>
 #ifdef _OPENMP
@@ -135,6 +138,7 @@ extern "C"{
   int recv_started_array[2][8];
   int *recv_started;
   int *recv_started_opposite;
+  static int send_peer[8], recv_peer[8];
 
   projscd1_t *xfd_recv0;
   projscd1_t *xbd_recv0;
@@ -260,7 +264,7 @@ extern "C"{
   static double overlap_probe_wait_send_request(MPI_Request *request,
                                                 MPI_Status *status) {
     double start_clock = get_clock();
-    MPI_Wait(request, status);
+    CHECK(OMPI_Wait(request, status));
     return get_clock() - start_clock;
   }
 
@@ -471,29 +475,10 @@ extern "C"{
   }
 
   static int overlap_probe_test_receives(const char *phase) {
-    int all_done;
-    double start_clock = get_clock();
-    for (int req=0; req<8; req++) {
-      int flag = 0;
-      if (!overlap_probe_req_active[req] || overlap_probe_req_done[req]) continue;
-      MPI_Test(&rs_req[req], &flag, MPI_STATUS_IGNORE);
-      if (flag) {
-        if ((overlap_probe_calc_end_only_mode()
-             || overlap_probe_coarse_phase_mode())
-            && overlap_probe_phase_is_calc_end(phase)) {
-          overlap_probe_add_dir_metric("overlap_probe_recv_dir_observed_upper_bound",
-                                       req,
-                                       get_clock() - overlap_probe_begin_clock);
-        }
-        overlap_probe_record_dir_done(req, phase, get_clock());
-      }
-    }
-    all_done = overlap_probe_all_receives_done();
-    if (all_done) {
-      overlap_probe_record_all_done(get_clock(), phase);
-    }
-    overlap_probe_add_phase_metric("overlap_probe_poll", phase, get_clock() - start_clock);
-    return all_done;
+    // PRISM exposes Wait but no Test. In the explicit wait-only probe,
+    // completion observations are recorded by xbound_wait instead of polling.
+    (void)phase;
+    return overlap_probe_all_receives_done();
   }
 #endif
 
@@ -565,6 +550,11 @@ extern "C"{
 		   int pxb, int pyb, int pzb, int ptb)
   {
 
+    const int send_ranks[8] = {pxb, pxf, pyb, pyf, pzb, pzf, ptb, ptf};
+    const int recv_ranks[8] = {pxf, pxb, pyf, pyb, pzf, pzb, ptf, ptb};
+    memcpy(send_peer, send_ranks, sizeof(send_peer));
+    memcpy(recv_peer, recv_ranks, sizeof(recv_peer));
+
     int nxh=nx/2;
     int nxd=nx/2/VLEND;
     int nxs=nx/2/VLENS;
@@ -627,43 +617,43 @@ extern "C"{
     }
 
     // initializing communications: double prec.
-    MPI_Send_init(xfd_send, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxb, 0, MPI_COMM_WORLD, &sd_req[0]);
-    MPI_Send_init(xbd_send, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxf, 1, MPI_COMM_WORLD, &sd_req[1]);
-    MPI_Send_init(yfd_send, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyb, 2, MPI_COMM_WORLD, &sd_req[2]);
-    MPI_Send_init(ybd_send, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyf, 3, MPI_COMM_WORLD, &sd_req[3]);
-    MPI_Send_init(zfd_send, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzb, 4, MPI_COMM_WORLD, &sd_req[4]);
-    MPI_Send_init(zbd_send, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzf, 5, MPI_COMM_WORLD, &sd_req[5]);
-    MPI_Send_init(tfd_send, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptb, 6, MPI_COMM_WORLD, &sd_req[6]);
-    MPI_Send_init(tbd_send, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptf, 7, MPI_COMM_WORLD, &sd_req[7]);
-    MPI_Recv_init(xfd_recv, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxf, 0, MPI_COMM_WORLD, &rd_req[0]);
-    MPI_Recv_init(xbd_recv, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxb, 1, MPI_COMM_WORLD, &rd_req[1]);
-    MPI_Recv_init(yfd_recv, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyf, 2, MPI_COMM_WORLD, &rd_req[2]);
-    MPI_Recv_init(ybd_recv, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyb, 3, MPI_COMM_WORLD, &rd_req[3]);
-    MPI_Recv_init(zfd_recv, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzf, 4, MPI_COMM_WORLD, &rd_req[4]);
-    MPI_Recv_init(zbd_recv, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzb, 5, MPI_COMM_WORLD, &rd_req[5]);
-    MPI_Recv_init(tfd_recv, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptf, 6, MPI_COMM_WORLD, &rd_req[6]);
-    MPI_Recv_init(tbd_recv, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptb, 7, MPI_COMM_WORLD, &rd_req[7]);
+    CHECK(OMPI_Psend_init(xfd_send, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxb, 0, MPI_COMM_WORLD, &sd_req[0]));
+    CHECK(OMPI_Psend_init(xbd_send, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxf, 1, MPI_COMM_WORLD, &sd_req[1]));
+    CHECK(OMPI_Psend_init(yfd_send, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyb, 2, MPI_COMM_WORLD, &sd_req[2]));
+    CHECK(OMPI_Psend_init(ybd_send, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyf, 3, MPI_COMM_WORLD, &sd_req[3]));
+    CHECK(OMPI_Psend_init(zfd_send, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzb, 4, MPI_COMM_WORLD, &sd_req[4]));
+    CHECK(OMPI_Psend_init(zbd_send, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzf, 5, MPI_COMM_WORLD, &sd_req[5]));
+    CHECK(OMPI_Psend_init(tfd_send, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptb, 6, MPI_COMM_WORLD, &sd_req[6]));
+    CHECK(OMPI_Psend_init(tbd_send, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptf, 7, MPI_COMM_WORLD, &sd_req[7]));
+    CHECK(OMPI_Precv_init(xfd_recv, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxf, 0, MPI_COMM_WORLD, &rd_req[0]));
+    CHECK(OMPI_Precv_init(xbd_recv, 12*ny *nz*nt, MPI_DOUBLE_PRECISION, pxb, 1, MPI_COMM_WORLD, &rd_req[1]));
+    CHECK(OMPI_Precv_init(yfd_recv, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyf, 2, MPI_COMM_WORLD, &rd_req[2]));
+    CHECK(OMPI_Precv_init(ybd_recv, 12*nxh*nz*nt, MPI_DOUBLE_PRECISION, pyb, 3, MPI_COMM_WORLD, &rd_req[3]));
+    CHECK(OMPI_Precv_init(zfd_recv, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzf, 4, MPI_COMM_WORLD, &rd_req[4]));
+    CHECK(OMPI_Precv_init(zbd_recv, 12*nxh*ny*nt, MPI_DOUBLE_PRECISION, pzb, 5, MPI_COMM_WORLD, &rd_req[5]));
+    CHECK(OMPI_Precv_init(tfd_recv, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptf, 6, MPI_COMM_WORLD, &rd_req[6]));
+    CHECK(OMPI_Precv_init(tbd_recv, 12*nxh*ny*nz, MPI_DOUBLE_PRECISION, ptb, 7, MPI_COMM_WORLD, &rd_req[7]));
 
     // initializing communications: single prec.
     for(int parity=0; parity<2; parity++){
       // send buffers are common for both parity
       int tag0=parity*8+8;
-      MPI_Send_init(xfs_send, 12*ny *nz*nt, MPI_REAL, pxb, tag0+0, MPI_COMM_WORLD, &ss_req_array[parity][0]);
-      MPI_Send_init(xbs_send, 12*ny *nz*nt, MPI_REAL, pxf, tag0+1, MPI_COMM_WORLD, &ss_req_array[parity][1]);
-      MPI_Send_init(yfs_send, 12*nxh*nz*nt, MPI_REAL, pyb, tag0+2, MPI_COMM_WORLD, &ss_req_array[parity][2]);
-      MPI_Send_init(ybs_send, 12*nxh*nz*nt, MPI_REAL, pyf, tag0+3, MPI_COMM_WORLD, &ss_req_array[parity][3]);
-      MPI_Send_init(zfs_send, 12*nxh*ny*nt, MPI_REAL, pzb, tag0+4, MPI_COMM_WORLD, &ss_req_array[parity][4]);
-      MPI_Send_init(zbs_send, 12*nxh*ny*nt, MPI_REAL, pzf, tag0+5, MPI_COMM_WORLD, &ss_req_array[parity][5]);
-      MPI_Send_init(tfs_send, 12*nxh*ny*nz, MPI_REAL, ptb, tag0+6, MPI_COMM_WORLD, &ss_req_array[parity][6]);
-      MPI_Send_init(tbs_send, 12*nxh*ny*nz, MPI_REAL, ptf, tag0+7, MPI_COMM_WORLD, &ss_req_array[parity][7]);
-      MPI_Recv_init(xfs_recv_array[parity], 12*ny *nz*nt, MPI_REAL, pxf, tag0+0, MPI_COMM_WORLD, &rs_req_array[parity][0]);
-      MPI_Recv_init(xbs_recv_array[parity], 12*ny *nz*nt, MPI_REAL, pxb, tag0+1, MPI_COMM_WORLD, &rs_req_array[parity][1]);
-      MPI_Recv_init(yfs_recv_array[parity], 12*nxh*nz*nt, MPI_REAL, pyf, tag0+2, MPI_COMM_WORLD, &rs_req_array[parity][2]);
-      MPI_Recv_init(ybs_recv_array[parity], 12*nxh*nz*nt, MPI_REAL, pyb, tag0+3, MPI_COMM_WORLD, &rs_req_array[parity][3]);
-      MPI_Recv_init(zfs_recv_array[parity], 12*nxh*ny*nt, MPI_REAL, pzf, tag0+4, MPI_COMM_WORLD, &rs_req_array[parity][4]);
-      MPI_Recv_init(zbs_recv_array[parity], 12*nxh*ny*nt, MPI_REAL, pzb, tag0+5, MPI_COMM_WORLD, &rs_req_array[parity][5]);
-      MPI_Recv_init(tfs_recv_array[parity], 12*nxh*ny*nz, MPI_REAL, ptf, tag0+6, MPI_COMM_WORLD, &rs_req_array[parity][6]);
-      MPI_Recv_init(tbs_recv_array[parity], 12*nxh*ny*nz, MPI_REAL, ptb, tag0+7, MPI_COMM_WORLD, &rs_req_array[parity][7]);
+      CHECK(OMPI_Psend_init(xfs_send, 12*ny *nz*nt, MPI_REAL, pxb, tag0+0, MPI_COMM_WORLD, &ss_req_array[parity][0]));
+      CHECK(OMPI_Psend_init(xbs_send, 12*ny *nz*nt, MPI_REAL, pxf, tag0+1, MPI_COMM_WORLD, &ss_req_array[parity][1]));
+      CHECK(OMPI_Psend_init(yfs_send, 12*nxh*nz*nt, MPI_REAL, pyb, tag0+2, MPI_COMM_WORLD, &ss_req_array[parity][2]));
+      CHECK(OMPI_Psend_init(ybs_send, 12*nxh*nz*nt, MPI_REAL, pyf, tag0+3, MPI_COMM_WORLD, &ss_req_array[parity][3]));
+      CHECK(OMPI_Psend_init(zfs_send, 12*nxh*ny*nt, MPI_REAL, pzb, tag0+4, MPI_COMM_WORLD, &ss_req_array[parity][4]));
+      CHECK(OMPI_Psend_init(zbs_send, 12*nxh*ny*nt, MPI_REAL, pzf, tag0+5, MPI_COMM_WORLD, &ss_req_array[parity][5]));
+      CHECK(OMPI_Psend_init(tfs_send, 12*nxh*ny*nz, MPI_REAL, ptb, tag0+6, MPI_COMM_WORLD, &ss_req_array[parity][6]));
+      CHECK(OMPI_Psend_init(tbs_send, 12*nxh*ny*nz, MPI_REAL, ptf, tag0+7, MPI_COMM_WORLD, &ss_req_array[parity][7]));
+      CHECK(OMPI_Precv_init(xfs_recv_array[parity], 12*ny *nz*nt, MPI_REAL, pxf, tag0+0, MPI_COMM_WORLD, &rs_req_array[parity][0]));
+      CHECK(OMPI_Precv_init(xbs_recv_array[parity], 12*ny *nz*nt, MPI_REAL, pxb, tag0+1, MPI_COMM_WORLD, &rs_req_array[parity][1]));
+      CHECK(OMPI_Precv_init(yfs_recv_array[parity], 12*nxh*nz*nt, MPI_REAL, pyf, tag0+2, MPI_COMM_WORLD, &rs_req_array[parity][2]));
+      CHECK(OMPI_Precv_init(ybs_recv_array[parity], 12*nxh*nz*nt, MPI_REAL, pyb, tag0+3, MPI_COMM_WORLD, &rs_req_array[parity][3]));
+      CHECK(OMPI_Precv_init(zfs_recv_array[parity], 12*nxh*ny*nt, MPI_REAL, pzf, tag0+4, MPI_COMM_WORLD, &rs_req_array[parity][4]));
+      CHECK(OMPI_Precv_init(zbs_recv_array[parity], 12*nxh*ny*nt, MPI_REAL, pzb, tag0+5, MPI_COMM_WORLD, &rs_req_array[parity][5]));
+      CHECK(OMPI_Precv_init(tfs_recv_array[parity], 12*nxh*ny*nz, MPI_REAL, ptf, tag0+6, MPI_COMM_WORLD, &rs_req_array[parity][6]));
+      CHECK(OMPI_Precv_init(tbs_recv_array[parity], 12*nxh*ny*nz, MPI_REAL, ptb, tag0+7, MPI_COMM_WORLD, &rs_req_array[parity][7]));
       for(int i=0; i<8; i++){
 	recv_started_array[parity][i]=0;
       }
@@ -673,7 +663,7 @@ extern "C"{
     xbound_recv_updateall(4);
     for(int req=0; req<8; req++){ // start recieving
       if (npe[req/2] != 1) {
-	MPI_Start(&rs_req[req]);
+	CHECK(QWS_PRISM_START(&rs_req[req]));
 	recv_started[req]=1;
       }
     }
@@ -684,16 +674,41 @@ extern "C"{
     // make sure all the communications are finished
     MPI_Barrier(MPI_COMM_WORLD);
 
-    // stop recieving
-    for(int parity=0; parity<2; parity++){
-      for(int req=0; req<8; req++){
-	if (npe[req/2] != 1) {
-	  if(recv_started_array[parity][req]) {
-	    MPI_Cancel(&rs_req_array[parity][req]);
-	    //	    MPI_Wait(&rs_req_array[parity][req], &status);
-	    MPI_Wait(&rs_req_array[parity][req], MPI_STATUSES_IGNORE);
-	  }
-	}
+    // Future receives remain preposted after the final numerical exchange.
+    // PRISM cannot cancel an active buffered receive. Tell each sender which
+    // receives remain active, then complete them using the existing buffers.
+    // This drain runs after solver timing and never contributes to the result.
+    for (int parity=0; parity<2; ++parity) {
+      int drain_send[8] = {0};
+      for (int req=0; req<8; ++req) {
+        if (npe[req/2] == 1) continue;
+        CHECK(MPI_Sendrecv(&recv_started_array[parity][req], 1, MPI_INT,
+                           recv_peer[req], 32+8*parity+req,
+                           &drain_send[req], 1, MPI_INT,
+                           send_peer[req], 32+8*parity+req,
+                           MPI_COMM_WORLD, MPI_STATUS_IGNORE));
+      }
+      for (int req=0; req<8; ++req) {
+        if (drain_send[req]) CHECK(QWS_PRISM_START(&ss_req_array[parity][req]));
+      }
+      for (int req=0; req<8; ++req) {
+        if (recv_started_array[parity][req]) {
+          CHECK(OMPI_Wait(&rs_req_array[parity][req], MPI_STATUS_IGNORE));
+          recv_started_array[parity][req] = 0;
+        }
+      }
+      for (int req=0; req<8; ++req) {
+        if (drain_send[req]) CHECK(OMPI_Wait(&ss_req_array[parity][req], MPI_STATUS_IGNORE));
+      }
+    }
+
+    // Extension handles must never reach standard MPI request routines.
+    for (int req=0; req<8; ++req) {
+      CHECK(OMPI_Prequest_free(&sd_req[req]));
+      CHECK(OMPI_Prequest_free(&rd_req[req]));
+      for (int parity=0; parity<2; ++parity) {
+        CHECK(OMPI_Prequest_free(&ss_req_array[parity][req]));
+        CHECK(OMPI_Prequest_free(&rs_req_array[parity][req]));
       }
     }
 
@@ -751,7 +766,7 @@ extern "C"{
   void xbound_start(int req, int prec) {
     if (npe[req/2] != 1) {
       if (prec == 8) {
-	MPI_Start(&rd_req[req]);
+	CHECK(QWS_PRISM_START(&rd_req[req]));
       }
     }
   }
@@ -760,9 +775,9 @@ extern "C"{
   void xbound(int req, int prec) {
     if (npe[req/2] != 1) {
       if (prec == 8) {
-	MPI_Start(&sd_req[req]);
+	CHECK(QWS_PRISM_START(&sd_req[req]));
       } else {
-	MPI_Start(&ss_req[req]);
+	CHECK(QWS_PRISM_START(&ss_req[req]));
       }
     } else {
       switch (req) {
@@ -830,13 +845,15 @@ extern "C"{
     MPI_Status status;
     if (npe[req/2] != 1) {
       if (prec == 8) {
-	MPI_Wait(&rd_req[req], &status);
+	CHECK(OMPI_Wait(&rd_req[req], &status));
       } else {
-	MPI_Wait(&rs_req[req], &status);
-	xbound_overlap_probe_after_req_wait(req);
+	CHECK(OMPI_Wait(&rs_req[req], &status));
+#if defined(PROF_TARGET) && PROF_TARGET == TARGET_OVERLAP_PROBE && defined(_CHECK_TIMING)
+        xbound_overlap_probe_after_req_wait(req);
+#endif
 	recv_started[req]=0;
 	if(!recv_started_opposite[req]){
-	  MPI_Start(&rs_req_opposite[req]);
+	  CHECK(QWS_PRISM_START(&rs_req_opposite[req]));
 	  recv_started_opposite[req]=1;
 	}
       }
@@ -847,7 +864,7 @@ extern "C"{
     if (prec == 4) {
       if (npe[req/2] != 1){
 	if(!recv_started_opposite[req]){
-	  MPI_Start(&rs_req_opposite[req]);
+	  CHECK(QWS_PRISM_START(&rs_req_opposite[req]));
 	  recv_started_opposite[req]=1;
 	}
       }
@@ -878,8 +895,8 @@ extern "C"{
                                  &send_dir_wait_sum, &send_dir_wait_max,
                                  &send_wait_max_req, &send_wait_count);
 #else
-		  MPI_Wait(&sd_req[0+2*i], &status);
-		  MPI_Wait(&sd_req[1+2*i], &status);
+		  CHECK(OMPI_Wait(&sd_req[0+2*i], &status));
+		  CHECK(OMPI_Wait(&sd_req[1+2*i], &status));
 #endif
   }
       }
@@ -896,8 +913,8 @@ extern "C"{
                                  &send_dir_wait_sum, &send_dir_wait_max,
                                  &send_wait_max_req, &send_wait_count);
 #else
-		  MPI_Wait(&ss_req[0+2*i], &status);
-		  MPI_Wait(&ss_req[1+2*i], &status);
+		  CHECK(OMPI_Wait(&ss_req[0+2*i], &status));
+		  CHECK(OMPI_Wait(&ss_req[1+2*i], &status));
 #endif
 		}
       }

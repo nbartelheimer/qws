@@ -75,6 +75,7 @@
 
 #ifdef _MPI_
 #include <mpi.h>
+#include "mpi_check.h"
 #endif
 
 #include <stdio.h>
@@ -129,7 +130,22 @@ int main( int argc, char *argv[] ){
   mt = std::mt19937(12345);
 
 #ifdef _MPI_
-  MPI_Init(&argc, &argv);
+#ifdef _OPENMP
+  int provided;
+#ifdef _THREADED_RDMA
+  const int required = MPI_THREAD_MULTIPLE;
+#else
+  const int required = MPI_THREAD_FUNNELED;
+#endif
+  CHECK(MPI_Init_thread(&argc, &argv, required, &provided));
+  if (provided < required) {
+    fprintf(stderr, "MPI thread support insufficient: required=%d, provided=%d\n",
+            required, provided);
+    CHECK(MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE));
+  }
+#else
+  CHECK(MPI_Init(&argc, &argv));
+#endif
 #endif
   int i, j;
 

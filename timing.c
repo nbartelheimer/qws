@@ -52,6 +52,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include "timing.h"
 
 #include <sys/time.h>
 #ifdef _OPENMP
@@ -206,7 +207,7 @@ void add_timing_delta_ (const char *id, const double *elapsed)
 
 void print_qws_timer_schema_(void)
 {
-#if defined(PROF_TARGET) && PROF_TARGET == TARGET_OVERLAP_PROBE
+#if defined(PROF_TARGET) && defined(TARGET_OVERLAP_PROBE) && PROF_TARGET == TARGET_OVERLAP_PROBE
   FILE *outputfile = stdout;
   if(para_outputfile) outputfile = para_outputfile;
 

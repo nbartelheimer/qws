@@ -70,6 +70,8 @@
 
 #ifdef _MPI_
 #include <mpi.h>
+#include "mpi_check.h"
+#include "qws_prism.h"
 #endif
 
 #include <stdio.h>
